@@ -19,7 +19,6 @@ router.get('/overview', async (req, res) => {
           name: 'Key-Value Model',
           section: '§2.1.1',
           description: 'Stores data in schemaless form. Each item has a key (index) and value.',
-          structure: { key: 'user:123', value: { name: 'Alice', role: 'manager' } },
           useCases: ['Caching', 'Session management', 'Leaderboard'],
           examples: ['Redis', 'DynamoDB', 'Voldemort'],
           mongoSimulation: 'collection: kv_store { _id: key, value: any }',
@@ -30,11 +29,6 @@ router.get('/overview', async (req, res) => {
           name: 'Wide-Column Model',
           section: '§2.1.2',
           description: 'Stores in tables, rows, dynamic columns. Key = row + column + timestamp.',
-          structure: {
-            columnFamily: 'employees',
-            row: 'emp:001',
-            columns: { name: 'Bob', dept: 'Engineering', salary: '5000' },
-          },
           useCases: ['IoT data', 'Inventory management', 'Big data processing'],
           examples: ['Cassandra', 'HBase', 'BigTable'],
           mongoSimulation: 'collection per column-family, documents = rows',
@@ -45,10 +39,6 @@ router.get('/overview', async (req, res) => {
           name: 'Document Model',
           section: '§2.1.3',
           description: 'Stores data as JSON/BSON/XML documents in collections.',
-          structure: {
-            collection: 'products',
-            document: { _id: 'prod:001', name: 'Laptop', price: 999, category: 'Electronics', specs: { ram: '16GB' } },
-          },
           useCases: ['Blog software', 'Content management', 'Product catalogs', 'Analytics'],
           examples: ['MongoDB', 'CouchDB', 'Firestore'],
           mongoSimulation: 'Native MongoDB document model',
@@ -59,17 +49,6 @@ router.get('/overview', async (req, res) => {
           name: 'Graph Model',
           section: '§2.1.4',
           description: 'Stores data as nodes and edges. Schemaless, uses shortest-path algorithms.',
-          structure: {
-            nodes: [
-              { id: 'user:1', label: 'User', name: 'Alice' },
-              { id: 'group:1', label: 'Group', name: 'Engineering' },
-              { id: 'file:1', label: 'File', name: 'report.pdf' },
-            ],
-            edges: [
-              { from: 'user:1', to: 'group:1', rel: 'in' },
-              { from: 'user:1', to: 'file:1', rel: 'can_read' },
-            ],
-          },
           useCases: ['Recommendation systems', 'Social networking', 'IAM', 'Content management'],
           examples: ['Neo4j', 'Amazon Neptune', 'ArangoDB'],
           mongoSimulation: 'Two collections: graph_nodes + graph_edges',
@@ -98,6 +77,23 @@ router.get('/overview', async (req, res) => {
     const counts = {};
     resourceCounts.forEach(r => { counts[r._id] = r.count; });
     overview.models.forEach(m => { m.recordCount = counts[m.type] || 0; });
+
+    // Thay ví dụ "structure" viết tay bằng 1 document thật lấy từ MongoDB
+    // cho từng loại model (nếu DB đã có seed data)
+    await Promise.all(overview.models.map(async (m) => {
+      const sample = await Resource.findOne({ nosqlModel: m.type }).lean();
+      if (sample) {
+        m.structure = {
+          source: 'live sample from MongoDB',
+          resourceId: sample._id,
+          name: sample.name,
+          attributes: sample.attributes,
+          content: sample.content,
+        };
+      } else {
+        m.structure = { source: 'no document found — run `npm run seed`', example: null };
+      }
+    }));
 
     res.json(overview);
   } catch (err) {

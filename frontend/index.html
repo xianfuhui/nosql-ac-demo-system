@@ -338,7 +338,7 @@ svg{display:block}
     <div class="section" id="section-sec42">
       <div class="card">
         <div class="card-title">💉 §4.2 — Security: NoSQL Injection Demo <span class="section-ref">§4.2</span></div>
-        <div class="card-subtitle">Mô phỏng NoSQL injection attacks và cách phòng chống. Educational only.</div>
+        <div class="card-subtitle">Chạy trực tiếp 2 truy vấn thật trên MongoDB (vulnerable path & safe path) để so sánh NoSQL injection và cách phòng chống. Educational only.</div>
         <div class="form-row"><label>Input username (thử attack)</label>
           <input id="inj-input" value='alice' placeholder='Try: {"$gt":""} or normal string'/>
         </div>
@@ -513,7 +513,7 @@ function showModelDetail(m) {
         <br><br><b>Examples:</b><br>${m.examples.map(e=>`<span class="tag green">${e}</span>`).join(' ')}
       </div>
       <div>
-        <b>Data structure:</b><br>
+        <b>Data structure (live sample từ MongoDB):</b><br>
         <pre class="result-box" style="font-size:11px">${JSON.stringify(m.structure, null, 2)}</pre>
         <div class="result-box deny" style="margin-top:8px;font-size:12px"><b>⚠️ AC Challenge:</b> ${m.acChallenge}</div>
       </div>
@@ -737,9 +737,14 @@ async function runFGACDemo() {
   const el = document.getElementById('fgacResult');
   el.style.display = 'block';
   const c = data.comparison;
+  const exposed = c.coarseGrained.exposedResources || [];
   el.innerHTML = `<div class="grid-2">
-    <div class="result-box allow"><b>🔶 Coarse-Grained (${c.coarseGrained.level})</b><br>Decision: <b>${c.coarseGrained.decision.toUpperCase()}</b><br><small>${c.coarseGrained.description}</small></div>
-    <div class="result-box ${c.fineGrained.decision}"><b>🔬 Fine-Grained (${c.fineGrained.level})</b><br>Decision: <b>${c.fineGrained.decision.toUpperCase()}</b><br>Policy: ${c.fineGrained.matchedPolicy||'none'}<br><small>${c.fineGrained.description}</small></div>
+    <div class="result-box ${c.coarseGrained.decision}"><b>🔶 Coarse-Grained (${c.coarseGrained.level})</b><br>Decision: <b>${c.coarseGrained.decision.toUpperCase()}</b><br>Policy: ${c.coarseGrained.matchedPolicy||'none'}<br><small>${c.coarseGrained.description}</small>
+      ${exposed.length ? `<br><br><b>Resources thực sự bị lộ theo (${exposed.length}):</b><ul style="margin-left:16px;font-size:12px">${exposed.map(r=>`<li>${r.name} <span class="pill ${r.classification==='public'?'allow':'deny'}">${r.classification}</span></li>`).join('')}</ul>` : ''}
+    </div>
+    <div class="result-box ${c.fineGrained.decision}"><b>🔬 Fine-Grained (${c.fineGrained.level})</b><br>Decision: <b>${c.fineGrained.decision.toUpperCase()}</b><br>Policy: ${c.fineGrained.matchedPolicy||'none'}<br><small>${c.fineGrained.description}</small>
+      ${c.fineGrained.fieldLevelResult ? `<br><br><b>Field check (thật, đọc từ document):</b> "${c.fineGrained.fieldLevelResult.field}" tồn tại: ${c.fineGrained.fieldLevelResult.existsInDocument?'✅':'❌'} → ${c.fineGrained.fieldLevelResult.decision.toUpperCase()}` : ''}
+    </div>
   </div>
   <div style="margin-top:8px;font-size:12px;color:#555">📌 ${data.nistNote}</div>`;
 }
@@ -754,8 +759,23 @@ async function runInjectionDemo() {
   const el = document.getElementById('injectionResult');
   el.style.display = 'block';
   el.innerHTML = `<div class="result-box ${data.isMalicious?'deny':'allow'}">
-    <b>${data.isMalicious ? '🚨 MALICIOUS INPUT DETECTED' : '✅ Safe Input'}</b> — ${data.attackType}<br>
+    <b>${data.exploitConfirmed ? '🚨 EXPLOIT CONFIRMED (live query trên MongoDB)' : data.isMalicious ? '⚠️ Suspicious pattern' : '✅ Safe Input'}</b> — ${data.attackType}<br>
     ${data.blockedBy ? `<b>Blocked by:</b> ${data.blockedBy}<br>` : ''}
+    ${data.recommendation ? `<b>Ghi chú:</b> ${data.recommendation}<br>` : ''}
+    <div class="grid-2" style="margin-top:8px">
+      <div style="padding:8px;border:1px solid #e53935;border-radius:6px">
+        <b>vulnerablePath (native driver)</b><br>
+        <small>${data.vulnerablePath.description}</small><br>
+        Matched: <b>${data.vulnerablePath.matchedCount}</b> / ${data.totalUsersInDatabase} users<br>
+        ${data.vulnerablePath.matchedUsers.map(u=>`<span class="tag">${u.username} (${u.role})</span>`).join(' ')}
+      </div>
+      <div style="padding:8px;border:1px solid #2e7d32;border-radius:6px">
+        <b>safePath (Mongoose)</b><br>
+        <small>${data.safePath.description}</small><br>
+        Matched: <b>${data.safePath.matchedCount}</b> / ${data.totalUsersInDatabase} users<br>
+        ${data.safePath.matchedUsers.map(u=>`<span class="tag green">${u.username} (${u.role})</span>`).join(' ')}
+      </div>
+    </div>
     <br><b>Common Attack Examples:</b><br>
     ${data.examples.map(e=>`<div style="margin:4px 0"><code>${e.attack}</code> — ${e.description} <span class="pill ${e.dangerous?'deny':'allow'}">${e.dangerous?'Dangerous':'Safe'}</span></div>`).join('')}
     <br><b>Prevention (§4.2):</b><br>
@@ -768,7 +788,14 @@ async function loadCAP() {
   const data = await fetch(`${API}/considerations/consistency/cap-theorem`).then(r=>r.json());
   const el = document.getElementById('capResult');
   const cap = data.capTheorem;
+  const lm = data.liveMeasurement;
   el.innerHTML = `
+    <div class="result-box ${lm.consistentReadAfterWrite?'allow':'deny'}" style="margin-bottom:12px">
+      <b>⏱ Live measurement (ghi + đọc thật trên MongoDB đang chạy):</b><br>
+      Topology: <b>${lm.topology}</b> &nbsp;|&nbsp; Write: <b>${lm.writeLatencyMs}ms</b> &nbsp;|&nbsp; Read: <b>${lm.readLatencyMs}ms</b><br>
+      Written version: <b>${lm.writtenVersion}</b> → Read version: <b>${lm.readVersion}</b> → Consistent: <b>${lm.consistentReadAfterWrite?'✅ YES':'⚠️ NO (stale read)'}</b><br>
+      <small>${lm.note}</small>
+    </div>
     <div class="grid-3" style="margin-bottom:16px">
       ${Object.entries(cap.components).map(([k,v])=>`
         <div class="card" style="text-align:center;padding:14px">
