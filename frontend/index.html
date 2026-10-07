@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NoSQL Access Control Demo — NIST IR 8504</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a237e 0%,#0d47a1 60%,#1565c0 100%);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+.header .subtitle{font-size:12px;opacity:.8;margin-top:2px}
+.user-info{display:flex;align-items:center;gap:10px;font-size:13px}
+.badge{background:rgba(255,255,255,.2);padding:3px 10px;border-radius:12px;font-size:12px}
+.container{display:flex;height:calc(100vh - 58px)}
+.sidebar{width:220px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;flex-shrink:0}
+.nav-section{padding:10px 12px 4px;font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.8px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:#555;cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:#f5f5f5;color:#1565c0}
+.nav-item.active{background:#e3f2fd;color:#1565c0;border-left-color:#1565c0;font-weight:600}
+.nav-item .icon{font-size:15px;width:18px;text-align:center}
+.main{flex:1;overflow-y:auto;padding:20px}
+.section{display:none}
+.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-title{font-size:15px;font-weight:700;color:#1a237e;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card-subtitle{font-size:12px;color:#888;margin-bottom:14px}
+.section-ref{background:#e8eaf6;color:#3949ab;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.model-card{background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:16px;cursor:pointer;transition:all .2s;position:relative}
+.model-card:hover{border-color:#1565c0;box-shadow:0 3px 12px rgba(21,101,192,.15);transform:translateY(-1px)}
+.model-card.selected{border-color:#1565c0;background:#e3f2fd}
+.model-icon{font-size:28px;margin-bottom:8px}
+.model-name{font-size:14px;font-weight:700;color:#1a237e}
+.model-section{font-size:11px;color:#888}
+.model-desc{font-size:12px;color:#555;margin-top:6px;line-height:1.5}
+.model-uses{margin-top:8px;display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:10px;background:#f0f4ff;color:#3949ab;padding:2px 7px;border-radius:10px;font-weight:500}
+.tag.red{background:#fce4ec;color:#c62828}
+.tag.green{background:#e8f5e9;color:#2e7d32}
+.tag.amber{background:#fff3e0;color:#e65100}
+btn,.btn{background:#1565c0;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;transition:background .15s}
+.btn:hover{background:#0d47a1}
+.btn.danger{background:#c62828}
+.btn.success{background:#2e7d32}
+.btn.outline{background:transparent;border:1.5px solid #1565c0;color:#1565c0}
+.btn.outline:hover{background:#e3f2fd}
+.btn.sm{padding:5px 12px;font-size:12px}
+input,select,textarea{width:100%;border:1.5px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;outline:none;transition:border .15s;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:#1565c0}
+label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px}
+.form-row{margin-bottom:12px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.result-box{background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:14px;font-size:13px;margin-top:12px}
+.result-box.allow{background:#e8f5e9;border-color:#a5d6a7}
+.result-box.deny{background:#ffebee;border-color:#ef9a9a}
+.result-box pre{white-space:pre-wrap;word-break:break-all;font-size:12px;font-family:monospace}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{background:#e8eaf6;color:#3949ab;padding:8px 12px;text-align:left;font-weight:600;font-size:12px}
+.table td{padding:8px 12px;border-bottom:1px solid #f0f0f0}
+.table tr:hover td{background:#fafafa}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.pill.allow{background:#e8f5e9;color:#2e7d32}
+.pill.deny{background:#ffebee;color:#c62828}
+.pill.admin{background:#e8eaf6;color:#3949ab}
+.pill.manager{background:#fff3e0;color:#e65100}
+.pill.employee{background:#e3f2fd;color:#1565c0}
+.pill.guest{background:#f5f5f5;color:#757575}
+.graph-container{border:1.5px solid #e0e0e0;border-radius:8px;background:#fafafa;overflow:hidden;position:relative}
+svg{display:block}
+.loading{text-align:center;padding:40px;color:#888;font-size:14px}
+.error-msg{color:#c62828;font-size:12px;margin-top:4px}
+.success-msg{color:#2e7d32;font-size:12px;margin-top:4px}
+.toggle-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.toggle-btn{padding:5px 14px;border:1.5px solid #ddd;border-radius:20px;font-size:12px;cursor:pointer;background:#fff;transition:all .15s}
+.toggle-btn.active{background:#1565c0;color:#fff;border-color:#1565c0}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-card{background:#fff;border-radius:8px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stat-num{font-size:28px;font-weight:700;color:#1565c0}
+.stat-label{font-size:11px;color:#888;margin-top:2px}
+.inline-row{display:flex;gap:10px;align-items:flex-end}
+.inline-row>*{flex:1}
+.inline-row>.btn{flex:0;white-space:nowrap;height:36px}
+.comparison-table{width:100%;border-collapse:collapse;font-size:12px}
+.comparison-table th{background:#e8eaf6;padding:7px 10px;text-align:left;font-size:11px;font-weight:700;color:#3949ab}
+.comparison-table td{padding:7px 10px;border-bottom:1px solid #f0f0f0}
+.comparison-table tr:nth-child(even) td{background:#fafafa}
+.check{color:#2e7d32;font-weight:700}
+.cross{color:#c62828;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="h1">🔐 NoSQL Access Control Demo</div>
+    <div class="subtitle">NIST IR 8504 — Node.js + MongoDB</div>
+  </div>
+  <div class="user-info" id="userInfo">
+    <span id="loginStatus">Not logged in</span>
+    <button class="btn sm" onclick="showSection('login')">Login</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="sidebar">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showSection('login')" id="nav-login">
+      <span class="icon">🔑</span> Login
+    </div>
+    <div class="nav-section">§2 — NoSQL Types</div>
+    <div class="nav-item" onclick="showSection('sec2')" id="nav-sec2">
+      <span class="icon">🗄️</span> 4 Models
+    </div>
+    <div class="nav-section">§3 — Access Control</div>
+    <div class="nav-item" onclick="showSection('sec3')" id="nav-sec3">
+      <span class="icon">🛡️</span> Policy Builder
+    </div>
+    <div class="nav-item" onclick="showSection('sec3-eval')" id="nav-sec3-eval">
+      <span class="icon">⚡</span> Evaluate Request
+    </div>
+    <div class="nav-item" onclick="showSection('sec3-graph')" id="nav-sec3-graph">
+      <span class="icon">🕸️</span> Graph AC (§3.2.3)
+    </div>
+    <div class="nav-section">§4 — Considerations</div>
+    <div class="nav-item" onclick="showSection('sec41')" id="nav-sec41">
+      <span class="icon">🔍</span> §4.1 FGAC
+    </div>
+    <div class="nav-item" onclick="showSection('sec42')" id="nav-sec42">
+      <span class="icon">💉</span> §4.2 Security
+    </div>
+    <div class="nav-item" onclick="showSection('sec44')" id="nav-sec44">
+      <span class="icon">♻️</span> §4.4 Consistency
+    </div>
+    <div class="nav-item" onclick="showSection('sec46')" id="nav-sec46">
+      <span class="icon">📊</span> §4.6 Audit
+    </div>
+    <div class="nav-item" onclick="showSection('sec48')" id="nav-sec48">
+      <span class="icon">🤖</span> §4.8 AI → Rule
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- LOGIN -->
+    <div class="section active" id="section-login">
+      <div class="card" style="max-width:440px">
+        <div class="card-title">🔑 Đăng nhập Demo</div>
+        <div class="card-subtitle">Test accounts: admin/admin123, alice/alice123, bob/bob123, carol/carol123, guest_user/guest123</div>
+        <div class="form-row"><label>Username</label><input id="loginUser" value="alice" placeholder="username"/></div>
+        <div class="form-row"><label>Password</label><input id="loginPass" type="password" value="alice123"/></div>
+        <button class="btn" onclick="doLogin()">Login</button>
+        <div id="loginResult" class="result-box" style="display:none;margin-top:12px"></div>
+      </div>
+      <div class="card" style="max-width:440px">
+        <div class="card-title">👤 Quick switch user</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+          <button class="btn outline sm" onclick="quickLogin('admin','admin123')">admin (clearance 5)</button>
+          <button class="btn outline sm" onclick="quickLogin('alice','alice123')">alice (manager)</button>
+          <button class="btn outline sm" onclick="quickLogin('bob','bob123')">bob (employee)</button>
+          <button class="btn outline sm" onclick="quickLogin('carol','carol123')">carol (finance)</button>
+          <button class="btn outline sm" onclick="quickLogin('guest_user','guest123')">guest</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- §2 NoSQL Types -->
+    <div class="section" id="section-sec2">
+      <div class="card">
+        <div class="card-title">🗄️ §2 — Overview of NoSQL Database Systems <span class="section-ref">§2.1</span></div>
+        <div class="card-subtitle">4 loại NoSQL model chính. Click để xem chi tiết cấu trúc và ví dụ.</div>
+        <div class="grid-2" id="modelCards"></div>
+      </div>
+      <div class="card" id="modelDetail" style="display:none">
+        <div class="card-title" id="modelDetailTitle"></div>
+        <div id="modelDetailContent"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Table 1 — RDBMS vs NoSQL <span class="section-ref">§2.2</span></div>
+        <div id="comparisonTable"></div>
+      </div>
+    </div>
+
+    <!-- §3 Policy Builder -->
+    <div class="section" id="section-sec3">
+      <div class="card">
+        <div class="card-title">🛡️ §3 — Access Control Policy Builder <span class="section-ref">§3.2</span></div>
+        <div class="card-subtitle">Tạo AC rules theo hierarchical structure của từng NoSQL model (Fig.7, 8, 9)</div>
+        <div class="form-grid">
+          <div>
+            <div class="form-row"><label>Policy Name</label><input id="p-name" placeholder="e.g. Engineering read access"/></div>
+            <div class="form-row"><label>NoSQL Model</label>
+              <select id="p-model">
+                <option value="all">All models</option>
+                <option value="key-value">Key-Value (§2.1.1)</option>
+                <option value="wide-column">Wide-Column (§2.1.2)</option>
+                <option value="document">Document (§2.1.3)</option>
+                <option value="graph">Graph (§2.1.4)</option>
+              </select>
+            </div>
+            <div class="form-row"><label>Policy Type</label>
+              <select id="p-type"><option>ABAC</option><option>RBAC</option><option>DAC</option><option>MAC</option></select>
+            </div>
+            <div class="form-row"><label>Effect</label>
+              <select id="p-effect"><option value="allow">✅ Allow</option><option value="deny">🚫 Deny</option></select>
+            </div>
+            <div class="form-row"><label>Actions (comma separated)</label><input id="p-actions" value="read"/></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#3949ab;margin-bottom:8px">📋 Subject Conditions (§3.2 - who)</div>
+            <div class="form-row"><label>Role</label><input id="p-s-role" placeholder="admin, manager, employee, guest"/></div>
+            <div class="form-row"><label>Department</label><input id="p-s-dept" placeholder="Engineering, Finance..."/></div>
+            <div class="form-row"><label>Group</label><input id="p-s-group" placeholder="dev-team, finance-team..."/></div>
+            <div class="form-row"><label>Min Clearance (0-5)</label><input id="p-s-clearance" type="number" min="0" max="5" placeholder="0"/></div>
+            <div style="font-size:12px;font-weight:700;color:#3949ab;margin:12px 0 8px">🎯 Object Conditions (§3.2 - what)</div>
+            <div class="form-row"><label>Division/Department</label><input id="p-o-div" placeholder="Engineering, Finance..."/></div>
+            <div class="form-row"><label>Classification</label>
+              <select id="p-o-class"><option value="">Any</option><option>public</option><option>internal</option><option>confidential</option><option>secret</option></select>
+            </div>
+            <div class="form-row"><label>Max Sensitivity (0-5)</label><input id="p-o-sens" type="number" min="0" max="5" placeholder="5"/></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <button class="btn" onclick="generateNLRule()">🔤 Generate Rule Text</button>
+          <button class="btn success" onclick="createPolicy()">+ Create Policy</button>
+        </div>
+        <div id="nlRuleOutput" class="result-box" style="display:none;margin-top:12px"></div>
+        <div id="policyCreateResult" class="result-box" style="display:none;margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Active Policies</div>
+        <div class="toggle-group" id="policyFilter">
+          <button class="toggle-btn active" onclick="filterPolicies(null,this)">All</button>
+          <button class="toggle-btn" onclick="filterPolicies('key-value',this)">Key-Value</button>
+          <button class="toggle-btn" onclick="filterPolicies('wide-column',this)">Wide-Column</button>
+          <button class="toggle-btn" onclick="filterPolicies('document',this)">Document</button>
+          <button class="toggle-btn" onclick="filterPolicies('graph',this)">Graph</button>
+        </div>
+        <div id="policiesList"></div>
+      </div>
+    </div>
+
+    <!-- §3 Evaluate -->
+    <div class="section" id="section-sec3-eval">
+      <div class="card">
+        <div class="card-title">⚡ §3.3 — Evaluate Access Request <span class="section-ref">§3.3</span></div>
+        <div class="card-subtitle">Test trực tiếp: subject attributes + object attributes + action → decision</div>
+        <div class="form-grid">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#3949ab;margin-bottom:8px">Subject Attributes</div>
+            <div class="form-row"><label>Role</label><input id="e-s-role" value="employee"/></div>
+            <div class="form-row"><label>Department</label><input id="e-s-dept" value="Engineering"/></div>
+            <div class="form-row"><label>Group</label><input id="e-s-group" value="dev-team"/></div>
+            <div class="form-row"><label>Clearance</label><input id="e-s-clear" type="number" value="2" min="0" max="5"/></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#3949ab;margin-bottom:8px">Object Attributes</div>
+            <div class="form-row"><label>Division</label><input id="e-o-div" value="Engineering"/></div>
+            <div class="form-row"><label>Classification</label>
+              <select id="e-o-class"><option>public</option><option>internal</option><option selected>confidential</option><option>secret</option></select>
+            </div>
+            <div class="form-row"><label>Sensitivity (0-5)</label><input id="e-o-sens" type="number" value="3" min="0" max="5"/></div>
+            <div class="form-row"><label>Company</label><input id="e-o-company" value="TechCorp"/></div>
+          </div>
+        </div>
+        <div class="inline-row">
+          <div><label>Action</label>
+            <select id="e-action">
+              <option>read</option><option>write</option><option>update</option><option>delete</option><option>admin</option>
+            </select>
+          </div>
+          <button class="btn" onclick="evaluateRequest()">▶ Evaluate</button>
+        </div>
+        <div id="evalResult" style="display:none;margin-top:14px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎭 Quick Test Scenarios</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn outline" onclick="runScenario('employee_read_public')">Scenario 1: Employee reads public resource → ALLOW</button>
+          <button class="btn outline" onclick="runScenario('guest_read_internal')">Scenario 2: Guest reads internal resource → DENY</button>
+          <button class="btn outline" onclick="runScenario('manager_write')">Scenario 3: Manager writes confidential → ALLOW</button>
+          <button class="btn outline" onclick="runScenario('employee_secret')">Scenario 4: Employee reads secret → DENY (low clearance)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- §3.2.3 Graph -->
+    <div class="section" id="section-sec3-graph">
+      <div class="card">
+        <div class="card-title">🕸️ §3.2.3 — Graph Model Access Control <span class="section-ref">§3.2.3</span></div>
+        <div class="card-subtitle">Nodes = entities, Edges = attributes/actions. Action edges embed AC rules directly (Fig.9, Fig.10)</div>
+        <button class="btn" onclick="loadGraph()">↻ Load Graph</button>
+        <div class="graph-container" style="margin-top:12px;height:380px">
+          <svg id="graphSvg" width="100%" height="380"></svg>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#888">
+          <span style="color:#1565c0">●</span> Subject nodes &nbsp;
+          <span style="color:#e65100">●</span> Object nodes &nbsp;
+          <span style="color:#6a1b9a">●</span> Attribute nodes &nbsp;
+          <span style="color:#2e7d32">→</span> Attribute edges &nbsp;
+          <span style="color:#c62828">→</span> Action (AC rule) edges
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔎 Check Access via Graph Path</div>
+        <div class="form-grid">
+          <div class="form-row"><label>Subject Node ID</label><input id="g-subject" value="user:alice"/></div>
+          <div class="form-row"><label>Object Node ID</label><input id="g-object" value="file:report-q4"/></div>
+        </div>
+        <div class="inline-row">
+          <div><label>Action</label>
+            <select id="g-action"><option>read</option><option>write</option><option>delete</option></select>
+          </div>
+          <button class="btn" onclick="checkGraphAccess()">Check Access</button>
+        </div>
+        <div id="graphAccessResult" style="display:none;margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- §4.1 FGAC -->
+    <div class="section" id="section-sec41">
+      <div class="card">
+        <div class="card-title">🔍 §4.1 — Fine-Grained Access Control <span class="section-ref">§4.1</span></div>
+        <div class="card-subtitle">So sánh coarse-grained (collection level) vs fine-grained (field level). NoSQL không hỗ trợ sẵn FGAC.</div>
+        <div id="fgacLevels"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚖️ Coarse vs Fine Grained Demo</div>
+        <div class="form-row"><label>Resource ID (từ §2)</label><input id="fgac-rid" placeholder="paste resource _id from §2"/></div>
+        <div class="form-row"><label>Requested Field (optional)</label><input id="fgac-field" placeholder="e.g. salary, revenue"/></div>
+        <button class="btn" onclick="runFGACDemo()">Run Comparison</button>
+        <div id="fgacResult" style="display:none;margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- §4.2 Security -->
+    <div class="section" id="section-sec42">
+      <div class="card">
+        <div class="card-title">💉 §4.2 — Security: NoSQL Injection Demo <span class="section-ref">§4.2</span></div>
+        <div class="card-subtitle">Mô phỏng NoSQL injection attacks và cách phòng chống. Educational only.</div>
+        <div class="form-row"><label>Input username (thử attack)</label>
+          <input id="inj-input" value='alice' placeholder='Try: {"$gt":""} or normal string'/>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn outline sm" onclick="document.getElementById('inj-input').value='alice'">Normal</button>
+          <button class="btn outline sm" onclick="document.getElementById('inj-input').value='{&quot;$gt&quot;:&quot;&quot;}'">Object injection</button>
+          <button class="btn outline sm" onclick="document.getElementById('inj-input').value='admin\' OR 1=1'">SQL-style</button>
+          <button class="btn outline sm" onclick="document.getElementById('inj-input').value='$where: this.role==admin'">$where injection</button>
+        </div>
+        <button class="btn" onclick="runInjectionDemo()">Test Input</button>
+        <div id="injectionResult" style="display:none;margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- §4.4 Consistency -->
+    <div class="section" id="section-sec44">
+      <div class="card">
+        <div class="card-title">♻️ §4.4 — Data Consistency & CAP Theorem <span class="section-ref">§4.4</span></div>
+        <div id="capResult" class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- §4.6 Audit -->
+    <div class="section" id="section-sec46">
+      <div class="card">
+        <div class="card-title">📊 §4.6 — Audit Log Dashboard <span class="section-ref">§4.6</span></div>
+        <div class="stat-grid" id="auditStats">
+          <div class="stat-card"><div class="stat-num" id="stat-total">-</div><div class="stat-label">Total Requests</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:#2e7d32" id="stat-allow">-</div><div class="stat-label">Allowed</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:#c62828" id="stat-deny">-</div><div class="stat-label">Denied</div></div>
+          <div class="stat-card"><div class="stat-num" style="color:#e65100" id="stat-rate">-</div><div class="stat-label">Deny Rate</div></div>
+        </div>
+        <button class="btn sm" onclick="loadAuditLogs()">↻ Refresh</button>
+        <div id="auditTable" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- §4.8 AI -->
+    <div class="section" id="section-sec48">
+      <div class="card">
+        <div class="card-title">🤖 §4.8 — AI NLP → Formal AC Rule <span class="section-ref">§4.8</span></div>
+        <div class="card-subtitle">Nhập văn bản tự nhiên → AI phân tích → sinh formal AC rule → tạo policy</div>
+        <div class="form-row"><label>Văn bản tự nhiên (luật, quy định...)</label>
+          <textarea id="nlp-input" rows="3" placeholder="VD: Nhân viên phòng Kỹ thuật có clearance >= 2 được đọc tài liệu nội bộ của phòng Engineering"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn outline sm" onclick="setNLPSample(1)">Mẫu 1: Nhân viên kỹ thuật</button>
+          <button class="btn outline sm" onclick="setNLPSample(2)">Mẫu 2: Khách không được xem</button>
+          <button class="btn outline sm" onclick="setNLPSample(3)">Mẫu 3: Manager tài chính</button>
+        </div>
+        <button class="btn" onclick="runNLPToRule()">🤖 Parse with AI</button>
+        <div id="nlpResult" style="display:none;margin-top:12px"></div>
+        <div id="nlpCreateBtn" style="display:none;margin-top:8px">
+          <button class="btn success" onclick="createPolicyFromNLP()">+ Create this Policy in MongoDB</button>
+          <span id="nlpCreateMsg"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Tự động detect: nếu mở file trực tiếp (file://) → dùng localhost:5000
+// Nếu deploy lên server → đổi thành URL thực tế ở đây
+const API_HOST = window.location.protocol === 'file:'
+  ? 'http://localhost:5000'
+  : window.location.origin;
+const API = `${API_HOST}/api`;
+let token = localStorage.getItem('token');
+let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+let lastNLPRule = null;
+let graphData = null;
+
+// ---- Auth ----
+async function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  const r = document.getElementById('loginResult');
+  r.style.display = 'block';
+  r.textContent = 'Logging in...';
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok) { r.className='result-box deny'; r.textContent='Error: '+data.error; return; }
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('token', token);
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    updateUserInfo();
+    r.className='result-box allow';
+    r.innerHTML=`<b>✅ Login successful!</b><br>User: ${data.user.username} | Role: ${data.user.attributes?.role} | Dept: ${data.user.attributes?.department} | Clearance: ${data.user.attributes?.clearance}`;
+  } catch(e) { r.className='result-box deny'; r.textContent='Connection error: '+e.message; }
+}
+
+async function quickLogin(u, p) {
+  document.getElementById('loginUser').value = u;
+  document.getElementById('loginPass').value = p;
+  await doLogin();
+}
+
+function updateUserInfo() {
+  if (!currentUser) return;
+  const a = currentUser.attributes || {};
+  document.getElementById('loginStatus').innerHTML = `<b>${currentUser.username}</b>`;
+  document.getElementById('userInfo').innerHTML =
+    `<span>${currentUser.username}</span><span class="badge">${a.role||'?'}</span><span class="badge">Clearance: ${a.clearance||0}</span><button class="btn sm danger" onclick="logout()">Logout</button>`;
+}
+
+function logout() {
+  token = null; currentUser = null;
+  localStorage.removeItem('token'); localStorage.removeItem('currentUser');
+  document.getElementById('userInfo').innerHTML = `<span id="loginStatus">Not logged in</span><button class="btn sm" onclick="showSection('login')">Login</button>`;
+  showSection('login');
+}
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API+path, opts);
+  return res.json();
+}
+
+// ---- Navigation ----
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  if (name === 'sec2') loadSec2();
+  if (name === 'sec3') loadPolicies();
+  if (name === 'sec3-graph') loadGraph();
+  if (name === 'sec41') loadFGACLevels();
+  if (name === 'sec44') loadCAP();
+  if (name === 'sec46') loadAuditLogs();
+}
+
+// ---- §2 ----
+async function loadSec2() {
+  const data = await api('/nosql-types/overview');
+  const icons = {'key-value':'🔑','wide-column':'📊','document':'📄','graph':'🕸️'};
+  const container = document.getElementById('modelCards');
+  container.innerHTML = data.models.map(m => `
+    <div class="model-card" onclick="showModelDetail(${JSON.stringify(m).replace(/"/g,'&quot;')})">
+      <div class="model-icon">${icons[m.type]}</div>
+      <div class="model-name">${m.name}</div>
+      <div class="model-section">${m.section} · ${m.recordCount} records in DB</div>
+      <div class="model-desc">${m.description}</div>
+      <div class="model-uses">${m.useCases.map(u=>`<span class="tag">${u}</span>`).join('')}</div>
+    </div>`).join('');
+
+  // Comparison table
+  const ct = data.comparison;
+  document.getElementById('comparisonTable').innerHTML =
+    `<table class="comparison-table">
+      <tr>${ct.columns.map(c=>`<th>${c}</th>`).join('')}</tr>
+      ${ct.rows.map(r=>`<tr>${r.map((v,i)=>`<td>${i>0&&v===true?'<span class="check">✓</span>':i>0&&v===false?'<span class="cross">✗</span>':v}</td>`).join('')}</tr>`).join('')}
+    </table>`;
+}
+
+function showModelDetail(m) {
+  document.getElementById('modelDetail').style.display = 'block';
+  document.getElementById('modelDetailTitle').innerHTML = m.name + ` <span class="section-ref">${m.section}</span>`;
+  document.getElementById('modelDetailContent').innerHTML = `
+    <div class="grid-2">
+      <div>
+        <b>MongoDB simulation:</b><br><code style="font-size:12px">${m.mongoSimulation}</code>
+        <br><br><b>Use cases:</b><br>${m.useCases.map(u=>`<span class="tag">${u}</span>`).join(' ')}
+        <br><br><b>Examples:</b><br>${m.examples.map(e=>`<span class="tag green">${e}</span>`).join(' ')}
+      </div>
+      <div>
+        <b>Data structure:</b><br>
+        <pre class="result-box" style="font-size:11px">${JSON.stringify(m.structure, null, 2)}</pre>
+        <div class="result-box deny" style="margin-top:8px;font-size:12px"><b>⚠️ AC Challenge:</b> ${m.acChallenge}</div>
+      </div>
+    </div>`;
+}
+
+// ---- §3 Policy ----
+let policiesData = [];
+async function loadPolicies(filter=null) {
+  const q = filter ? `?nosqlModel=${filter}` : '';
+  const data = await api('/policies'+q);
+  policiesData = data.policies || [];
+  renderPolicies(policiesData);
+}
+
+function renderPolicies(policies) {
+  const el = document.getElementById('policiesList');
+  if (!policies.length) { el.innerHTML='<p style="color:#888;font-size:13px">No policies found.</p>'; return; }
+  el.innerHTML = `<table class="table">
+    <tr><th>Name</th><th>Type</th><th>Model</th><th>Effect</th><th>Rule</th><th>Actions</th></tr>
+    ${policies.map(p=>`<tr>
+      <td><b>${p.name}</b></td>
+      <td><span class="tag">${p.policyType}</span></td>
+      <td><span class="tag">${p.nosqlModel}</span></td>
+      <td><span class="pill ${p.effect}">${p.effect}</span></td>
+      <td style="font-size:12px;color:#555">${p.naturalLanguageRule||'-'}</td>
+      <td>${(p.actions||[]).map(a=>`<span class="tag amber">${a}</span>`).join(' ')}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+function filterPolicies(model, btn) {
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadPolicies(model);
+}
+
+async function generateNLRule() {
+  const body = buildPolicyBody();
+  const data = await api('/policies/generate-natural-language', 'POST', body);
+  const el = document.getElementById('nlRuleOutput');
+  el.style.display = 'block';
+  el.className = 'result-box allow';
+  el.innerHTML = `<b>📝 Natural Language Rule (${body.nosqlModel}):</b><br><br>"${data.naturalLanguageRule}"`;
+}
+
+async function createPolicy() {
+  const body = buildPolicyBody();
+  if (!body.name) { alert('Please enter a policy name'); return; }
+  const data = await api('/policies', 'POST', body);
+  const el = document.getElementById('policyCreateResult');
+  el.style.display = 'block';
+  if (data.policy) {
+    el.className = 'result-box allow';
+    el.innerHTML = `✅ Policy created: <b>${data.policy.name}</b> (${data.policy._id})`;
+    loadPolicies();
+  } else {
+    el.className = 'result-box deny'; el.textContent = 'Error: '+(data.error||'Unknown');
+  }
+}
+
+function buildPolicyBody() {
+  return {
+    name: document.getElementById('p-name').value,
+    nosqlModel: document.getElementById('p-model').value,
+    policyType: document.getElementById('p-type').value,
+    effect: document.getElementById('p-effect').value,
+    actions: document.getElementById('p-actions').value.split(',').map(s=>s.trim()).filter(Boolean),
+    subjectConditions: {
+      role: document.getElementById('p-s-role').value||undefined,
+      department: document.getElementById('p-s-dept').value||undefined,
+      group: document.getElementById('p-s-group').value||undefined,
+      minClearance: document.getElementById('p-s-clearance').value ? parseInt(document.getElementById('p-s-clearance').value) : undefined,
+    },
+    objectConditions: {
+      division: document.getElementById('p-o-div').value||undefined,
+      classification: document.getElementById('p-o-class').value||undefined,
+      maxSensitivity: document.getElementById('p-o-sens').value ? parseInt(document.getElementById('p-o-sens').value) : undefined,
+    },
+  };
+}
+
+// ---- §3 Evaluate ----
+async function evaluateRequest() {
+  const body = {
+    subjectAttributes: {
+      role: document.getElementById('e-s-role').value,
+      department: document.getElementById('e-s-dept').value,
+      group: document.getElementById('e-s-group').value,
+      clearance: parseInt(document.getElementById('e-s-clear').value)||0,
+    },
+    objectAttributes: {
+      division: document.getElementById('e-o-div').value,
+      classification: document.getElementById('e-o-class').value,
+      sensitivity: parseInt(document.getElementById('e-o-sens').value)||0,
+      company: document.getElementById('e-o-company').value,
+    },
+    action: document.getElementById('e-action').value,
+  };
+  const data = await api('/policies/evaluate', 'POST', body);
+  const el = document.getElementById('evalResult');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="result-box ${data.decision}">
+    <b>${data.decision === 'allow' ? '✅ ALLOW' : '🚫 DENY'}</b><br>
+    <b>Matched Policy:</b> ${data.matchedPolicy || 'None (default deny)'}<br>
+    <b>Reason:</b> ${data.reason}<br>
+    ${data.policyDetail ? `<b>Policy Type:</b> ${data.policyDetail.policyType} | <b>Effect:</b> ${data.policyDetail.effect}` : ''}
+  </div>`;
+}
+
+const SCENARIOS = {
+  employee_read_public: { subjectAttributes:{role:'employee',department:'Engineering',clearance:2}, objectAttributes:{classification:'public',sensitivity:1}, action:'read' },
+  guest_read_internal: { subjectAttributes:{role:'guest',department:'external',clearance:0}, objectAttributes:{classification:'internal',sensitivity:2}, action:'read' },
+  manager_write: { subjectAttributes:{role:'manager',department:'Engineering',clearance:3}, objectAttributes:{classification:'confidential',sensitivity:3}, action:'write' },
+  employee_secret: { subjectAttributes:{role:'employee',department:'Finance',clearance:2}, objectAttributes:{classification:'secret',sensitivity:5}, action:'read' },
+};
+
+async function runScenario(key) {
+  const sc = SCENARIOS[key];
+  const data = await api('/policies/evaluate', 'POST', sc);
+  const el = document.getElementById('evalResult');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="result-box ${data.decision}">
+    <b>${data.decision === 'allow' ? '✅ ALLOW' : '🚫 DENY'}</b> — Scenario: <b>${key.replace(/_/g,' ')}</b><br>
+    <b>Subject:</b> role=${sc.subjectAttributes.role}, clearance=${sc.subjectAttributes.clearance}<br>
+    <b>Object:</b> classification=${sc.objectAttributes.classification}<br>
+    <b>Action:</b> ${sc.action}<br>
+    <b>Matched Policy:</b> ${data.matchedPolicy || 'None (default deny)'}<br>
+    <b>Reason:</b> ${data.reason}
+  </div>`;
+}
+
+// ---- §3.2.3 Graph ----
+async function loadGraph() {
+  graphData = await api('/graph/full');
+  drawGraph(graphData.nodes, graphData.edges);
+}
+
+function drawGraph(nodes, edges) {
+  const svg = document.getElementById('graphSvg');
+  const W = svg.clientWidth || 700, H = 370;
+  const colors = { subject:'#1565c0', object:'#e65100', attribute:'#6a1b9a', action:'#2e7d32' };
+  const nodeColors = { user:'#1565c0', file:'#e65100', collection:'#bf360c', group:'#6a1b9a', company:'#4a148c', department:'#7b1fa2', organization:'#880e4f' };
+
+  // Simple force-like layout
+  const nodePos = {};
+  const subjectNodes = nodes.filter(n=>n.nodeType==='subject');
+  const objectNodes = nodes.filter(n=>n.nodeType==='object');
+  const attrNodes = nodes.filter(n=>n.nodeType==='attribute');
+
+  subjectNodes.forEach((n,i) => { nodePos[n.nodeId] = { x: 80 + i*(W-120)/(Math.max(subjectNodes.length-1,1)), y: 60 }; });
+  attrNodes.forEach((n,i) => { nodePos[n.nodeId] = { x: 80 + i*(W-120)/(Math.max(attrNodes.length-1,1)), y: 190 }; });
+  objectNodes.forEach((n,i) => { nodePos[n.nodeId] = { x: 80 + i*(W-120)/(Math.max(objectNodes.length-1,1)), y: 320 }; });
+
+  let html = `<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#888" stroke-width="1.5"/></marker>
+  <marker id="arrRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#c62828" stroke-width="1.5"/></marker></defs>`;
+
+  // Draw edges
+  edges.forEach(e => {
+    const from = nodePos[e.fromNodeId], to = nodePos[e.toNodeId];
+    if (!from || !to) return;
+    const color = e.edgeType === 'action' ? '#c62828' : '#aaa';
+    const marker = e.edgeType === 'action' ? 'arrRed' : 'arr';
+    const mx = (from.x + to.x)/2, my = (from.y + to.y)/2;
+    html += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${color}" stroke-width="${e.isACRule?2:1}" stroke-dasharray="${e.edgeType==='action'?'5,3':''}" marker-end="url(#${marker})"/>`;
+    html += `<text x="${mx}" y="${my-4}" text-anchor="middle" font-size="9" fill="${color}" font-family="Arial">${e.relationship}</text>`;
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    const pos = nodePos[n.nodeId];
+    if (!pos) return;
+    const col = nodeColors[n.label] || colors[n.nodeType] || '#888';
+    html += `<circle cx="${pos.x}" cy="${pos.y}" r="18" fill="${col}" fill-opacity=".15" stroke="${col}" stroke-width="1.5"/>`;
+    html += `<text x="${pos.x}" y="${pos.y-3}" text-anchor="middle" font-size="9" font-weight="700" fill="${col}" font-family="Arial">${n.label}</text>`;
+    html += `<text x="${pos.x}" y="${pos.y+8}" text-anchor="middle" font-size="8" fill="${col}" font-family="Arial">${n.name.length>10?n.name.substring(0,9)+'…':n.name}</text>`;
+  });
+
+  // Labels
+  html += `<text x="10" y="62" font-size="10" fill="#1565c0" font-family="Arial" font-weight="700">Subjects</text>`;
+  html += `<text x="10" y="192" font-size="10" fill="#6a1b9a" font-family="Arial" font-weight="700">Attributes</text>`;
+  html += `<text x="10" y="322" font-size="10" fill="#e65100" font-family="Arial" font-weight="700">Objects</text>`;
+
+  svg.innerHTML = html;
+}
+
+async function checkGraphAccess() {
+  const body = { subjectNodeId: document.getElementById('g-subject').value, objectNodeId: document.getElementById('g-object').value, action: document.getElementById('g-action').value };
+  const data = await api('/graph/check-access', 'POST', body);
+  const el = document.getElementById('graphAccessResult');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="result-box ${data.decision}">
+    <b>${data.decision === 'allow' ? '✅ ALLOW' : '🚫 DENY'}</b><br>
+    <b>Path:</b> ${data.path?.join(' → ') || 'No path found'}<br>
+    <b>Reason:</b> ${data.reason}<br>
+    ${data.isEmbeddedACRule ? '<span class="tag green">✓ Embedded AC Rule in Graph (§3.2.3 Fig.10)</span>' : ''}
+  </div>`;
+}
+
+// ---- §4.1 FGAC ----
+async function loadFGACLevels() {
+  const data = await api('/considerations/fgac/levels');
+  let html = `<div class="grid-2">`;
+  for (const [model, levels] of Object.entries(data.granularityLevels)) {
+    const isRDBMS = model === 'RDBMS';
+    html += `<div style="margin-bottom:12px">
+      <b style="color:${isRDBMS?'#2e7d32':'#1565c0'}">${model} ${isRDBMS?'(Reference)':''}</b><br>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        ${levels.map((l,i) => `<span class="tag ${i===levels.length-1?'green':''}">${i+1}. ${l}</span>`).join('<span style="color:#aaa">›</span>')}
+      </div>
+    </div>`;
+  }
+  html += `</div><div class="result-box deny" style="margin-top:8px"><b>§4.1 Challenge:</b> ${data.challenge}</div>`;
+  document.getElementById('fgacLevels').innerHTML = html;
+}
+
+async function runFGACDemo() {
+  const rid = document.getElementById('fgac-rid').value.trim();
+  if (!rid) { alert('Please enter a Resource ID from §2'); return; }
+  const data = await api('/considerations/fgac/demo', 'POST', { userId: currentUser?._id, resourceId: rid, requestedField: document.getElementById('fgac-field').value });
+  const el = document.getElementById('fgacResult');
+  el.style.display = 'block';
+  const c = data.comparison;
+  el.innerHTML = `<div class="grid-2">
+    <div class="result-box allow"><b>🔶 Coarse-Grained (${c.coarseGrained.level})</b><br>Decision: <b>${c.coarseGrained.decision.toUpperCase()}</b><br><small>${c.coarseGrained.description}</small></div>
+    <div class="result-box ${c.fineGrained.decision}"><b>🔬 Fine-Grained (${c.fineGrained.level})</b><br>Decision: <b>${c.fineGrained.decision.toUpperCase()}</b><br>Policy: ${c.fineGrained.matchedPolicy||'none'}<br><small>${c.fineGrained.description}</small></div>
+  </div>
+  <div style="margin-top:8px;font-size:12px;color:#555">📌 ${data.nistNote}</div>`;
+}
+
+// ---- §4.2 Injection ----
+async function runInjectionDemo() {
+  let input = document.getElementById('inj-input').value;
+  try { input = JSON.parse(input); } catch(e) {}
+  const data = await fetch(`${API}/considerations/security/injection-demo`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ inputUsername: input })
+  }).then(r=>r.json());
+  const el = document.getElementById('injectionResult');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="result-box ${data.isMalicious?'deny':'allow'}">
+    <b>${data.isMalicious ? '🚨 MALICIOUS INPUT DETECTED' : '✅ Safe Input'}</b> — ${data.attackType}<br>
+    ${data.blockedBy ? `<b>Blocked by:</b> ${data.blockedBy}<br>` : ''}
+    <br><b>Common Attack Examples:</b><br>
+    ${data.examples.map(e=>`<div style="margin:4px 0"><code>${e.attack}</code> — ${e.description} <span class="pill ${e.dangerous?'deny':'allow'}">${e.dangerous?'Dangerous':'Safe'}</span></div>`).join('')}
+    <br><b>Prevention (§4.2):</b><br>
+    <ul style="margin-left:16px">${data.prevention.map(p=>`<li style="font-size:12px">${p}</li>`).join('')}</ul>
+  </div>`;
+}
+
+// ---- §4.4 CAP ----
+async function loadCAP() {
+  const data = await fetch(`${API}/considerations/consistency/cap-theorem`).then(r=>r.json());
+  const el = document.getElementById('capResult');
+  const cap = data.capTheorem;
+  el.innerHTML = `
+    <div class="grid-3" style="margin-bottom:16px">
+      ${Object.entries(cap.components).map(([k,v])=>`
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-size:24px;font-weight:900;color:#1a237e">${k}</div>
+          <div style="font-weight:700;margin:4px 0">${v.name}</div>
+          <div style="font-size:12px;color:#555">${v.description}</div>
+          <div style="margin-top:8px">
+            RDBMS: <span class="${v.rdbms?'check':'cross'}">${v.rdbms?'✓':'✗'}</span>
+            &nbsp; NoSQL: <span class="${v.nosql?'check':'cross'}">${v.nosql?'✓':'✗'}</span>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="grid-2">
+      <div class="result-box deny"><b>🔴 Impact on Access Control (§4.4):</b><br>${data.impactOnAC.problem}<br><br>
+        <b>Example:</b> ${data.impactOnAC.example}<br><br>
+        <b>Affected AC Models:</b><br>
+        ${data.impactOnAC.models.map(m=>`<div>• <b>${m.model}</b>: ${m.affected?'⚠️ Affected':'✅ Less affected'} — ${m.reason}</div>`).join('')}
+      </div>
+      <div class="result-box allow"><b>🟢 Eventual Consistency:</b><br>${data.eventualConsistency.description}<br><br>
+        <b>Sync window:</b> ${data.eventualConsistency.window}<br>
+        <b>AC Risk:</b> ${data.eventualConsistency.risk}<br><br>
+        <b>Solution:</b> ${data.impactOnAC.solution}
+      </div>
+    </div>`;
+}
+
+// ---- §4.6 Audit ----
+async function loadAuditLogs() {
+  const stats = await api('/considerations/audit/stats');
+  const logs = await api('/considerations/audit/logs?limit=20');
+
+  document.getElementById('stat-total').textContent = stats.summary?.total || 0;
+  document.getElementById('stat-allow').textContent = stats.summary?.totalAllow || 0;
+  document.getElementById('stat-deny').textContent = stats.summary?.totalDeny || 0;
+  document.getElementById('stat-rate').textContent = Math.round((stats.summary?.denyRate||0)*100)+'%';
+
+  const entries = logs.logs || [];
+  document.getElementById('auditTable').innerHTML = entries.length ? `
+    <table class="table">
+      <tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>Decision</th><th>Policy</th></tr>
+      ${entries.map(l=>`<tr>
+        <td style="font-size:11px">${new Date(l.timestamp).toLocaleString('vi-VN')}</td>
+        <td>${l.username||'-'}</td>
+        <td><span class="tag">${l.action||'-'}</span></td>
+        <td style="font-size:12px">${l.resource||'-'}</td>
+        <td><span class="pill ${l.decision}">${l.decision}</span></td>
+        <td style="font-size:11px;color:#888">${l.matchedPolicy||'none'}</td>
+      </tr>`).join('')}
+    </table>` : '<p style="color:#888;font-size:13px">No audit logs yet. Try accessing some resources first.</p>';
+}
+
+// ---- §4.8 AI ----
+const NLP_SAMPLES = [
+  'Nhân viên phòng Kỹ thuật có cấp độ clearance từ 2 trở lên được phép đọc tài liệu nội bộ thuộc phòng Engineering',
+  'Khách vãng lai và người dùng khách (guest) không được phép xem hoặc truy cập bất kỳ tài liệu mật hoặc nội bộ nào',
+  'Quản lý phòng Tài chính có thể đọc và chỉnh sửa báo cáo tài chính thuộc division Finance của công ty TechCorp',
+];
+
+function setNLPSample(i) {
+  document.getElementById('nlp-input').value = NLP_SAMPLES[i-1];
+}
+
+async function runNLPToRule() {
+  const text = document.getElementById('nlp-input').value.trim();
+  if (!text) { alert('Please enter some text'); return; }
+  const el = document.getElementById('nlpResult');
+  el.style.display = 'block'; el.innerHTML = '<div class="loading">🤖 AI is parsing...</div>';
+  const data = await api('/considerations/ai/nlp-to-rule', 'POST', { naturalLanguageText: text });
+  if (data.error) { el.innerHTML = `<div class="result-box deny">Error: ${data.error}</div>`; return; }
+  lastNLPRule = data.formalRule;
+  el.innerHTML = `<div class="result-box allow">
+    <b>✅ AI Parsed Rule (§4.8):</b><br><br>
+    <b>Natural Language:</b> "${data.formalRule.naturalLanguageRule}"<br><br>
+    <b>Formal Rule:</b><br>
+    <pre>${JSON.stringify(data.formalRule, null, 2)}</pre>
+    <br><span class="tag">Confidence: ${Math.round((data.formalRule.confidence||0)*100)}%</span>
+    <span class="tag">${data.formalRule.nosqlModel}</span>
+    <span class="pill ${data.formalRule.effect}">${data.formalRule.effect}</span>
+  </div>`;
+  document.getElementById('nlpCreateBtn').style.display = 'block';
+}
+
+async function createPolicyFromNLP() {
+  if (!lastNLPRule) return;
+  const policyBody = {
+    name: 'AI-Generated: '+lastNLPRule.naturalLanguageRule?.substring(0,40)+'...',
+    policyType: 'ABAC',
+    nosqlModel: lastNLPRule.nosqlModel || 'all',
+    effect: lastNLPRule.effect || 'allow',
+    actions: lastNLPRule.actions || ['read'],
+    subjectConditions: lastNLPRule.subjectConditions || {},
+    objectConditions: lastNLPRule.objectConditions || {},
+    naturalLanguageRule: lastNLPRule.naturalLanguageRule,
+  };
+  const data = await api('/policies', 'POST', policyBody);
+  const msg = document.getElementById('nlpCreateMsg');
+  if (data.policy) {
+    msg.style.color = '#2e7d32';
+    msg.textContent = ` ✅ Policy created in MongoDB: ${data.policy._id}`;
+  } else {
+    msg.style.color = '#c62828';
+    msg.textContent = ' ❌ Error: '+(data.error||'unknown');
+  }
+}
+
+// Init
+if (token && currentUser) updateUserInfo();
+</script>
+</body>
+</html>
