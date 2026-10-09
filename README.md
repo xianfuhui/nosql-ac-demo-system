@@ -3,6 +3,61 @@
 
 ---
 
+## 🧩 Cấu trúc project (FE đã gộp vào BE)
+
+Frontend không còn là thư mục riêng — toàn bộ được phục vụ tĩnh ngay từ
+Express server và tách làm **2 khu vực**, phân quyền **thật ở backend**
+(middleware `requireAdmin`), không chỉ ẩn ở giao diện:
+
+```
+backend/
+  public/
+    index.html   # trang chọn vai trò
+    admin.html   # Admin Console — §2-§4 đầy đủ, mọi thao tác ghi cần role=admin
+    user.html    # User View — chỉ xem/thao tác đúng quyền thật của user đang login
+  server.js      # app.use(express.static('public')) + route /admin, /user
+```
+
+Chạy:
+```bash
+cd backend
+npm install
+npm run seed     # seed 5 tài khoản demo + resources/policies
+npm start
+```
+- `http://localhost:5000/` → trang chọn Admin / User
+- `http://localhost:5000/admin` → Admin Console
+- `http://localhost:5000/user` → User View
+
+**Phân quyền thật (không phải chỉ ẩn nút trên UI):**
+- `GET /api/nosql-types/my-access` (user bất kỳ) — chạy ABAC engine thật trên
+  từng resource trong MongoDB theo attributes của chính user đang đăng nhập,
+  trả về allow/deny + lý do. Đây là cách User View "cho thấy quyền của người
+  dùng" một cách trung thực — đăng nhập 2 tài khoản khác nhau sẽ ra 2 kết quả
+  khác nhau.
+- Các route ghi/quản trị sau yêu cầu `role=admin`, trả **403 thật** từ server
+  nếu không đủ quyền: `POST/PUT/DELETE /api/policies`, `POST/DELETE
+  /api/graph/nodes|edges`, `POST /api/graph/embed-ac-rule`, `POST
+  /api/nosql-types/resources`, `GET /api/nosql-types/resources` (danh sách
+  toàn bộ), `GET/PUT /api/auth/users*`, và toàn bộ `/api/considerations/*`
+  (§4 demo: FGAC, injection, CAP, audit, performance, AI→rule).
+- Đăng nhập tài khoản không phải admin ở `/admin` vẫn xem được giao diện,
+  nhưng mọi request ghi sẽ nhận 403 thật — minh hoạ đúng cách NoSQL hiện
+  tại thường chỉ enforce AC ở mức thô (coarse-grained), còn phần "ai được
+  sửa gì" phải tự implement thêm (§4.1, §4.2).
+
+Tài khoản demo (xem `backend/seed/seedData.js`):
+
+| username | password | role | department | clearance |
+|---|---|---|---|---|
+| admin | admin123 | admin | IT | 5 |
+| alice | alice123 | manager | Engineering | 3 |
+| bob | bob123 | employee | Engineering | 2 |
+| carol | carol123 | employee | Finance | 2 |
+| guest_user | guest123 | guest | external | 0 |
+
+---
+
 ## ⏱️ Thời gian: ~20-25 phút | Cấu trúc: 8 màn demo
 
 ---
@@ -13,8 +68,9 @@
 > "Bài báo NIST IR 8504 nghiên cứu vấn đề kiểm soát truy cập trên hệ thống NoSQL.
 > Hệ thống demo này minh họa trực tiếp từng section của bài báo trên nền Node.js + MongoDB."
 
-**Mở trình duyệt → `frontend/index.html`**
-Giới thiệu nhanh giao diện: sidebar trái = các section, nội dung phải = demo tương tác.
+**Mở trình duyệt → `http://localhost:5000/`** → chọn **Admin Console** (đầy đủ §2-§4,
+sidebar trái = các section) hoặc **User View** (trang gọn, chỉ hiện đúng quyền
+thật của user đang đăng nhập).
 
 ---
 

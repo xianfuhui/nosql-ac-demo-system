@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>User View — NoSQL Access Control Demo (NIST IR 8504)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
+.header{background:linear-gradient(135deg,#2e7d32 0%,#1b5e20 60%,#388e3c 100%);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+.header .subtitle{font-size:12px;opacity:.8;margin-top:2px}
+.user-info{display:flex;align-items:center;gap:10px;font-size:13px}
+.badge{background:rgba(255,255,255,.2);padding:3px 10px;border-radius:12px;font-size:12px}
+.main{max-width:980px;margin:0 auto;padding:24px}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-title{font-size:15px;font-weight:700;color:#1b5e20;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card-subtitle{font-size:12px;color:#888;margin-bottom:14px}
+.btn{background:#2e7d32;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;transition:background .15s}
+.btn:hover{background:#1b5e20}
+.btn.outline{background:transparent;border:1.5px solid #2e7d32;color:#2e7d32}
+.btn.outline:hover{background:#e8f5e9}
+.btn.sm{padding:5px 12px;font-size:12px}
+.btn.danger{background:#c62828}
+input{width:100%;border:1.5px solid #ddd;border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit}
+input:focus{border-color:#2e7d32}
+label{font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:4px}
+.form-row{margin-bottom:12px}
+.result-box{background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:14px;font-size:13px;margin-top:12px}
+.result-box.allow{background:#e8f5e9;border-color:#a5d6a7}
+.result-box.deny{background:#ffebee;border-color:#ef9a9a}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{background:#e8f5e9;color:#1b5e20;padding:8px 12px;text-align:left;font-weight:600;font-size:12px}
+.table td{padding:8px 12px;border-bottom:1px solid #f0f0f0}
+.table tr:hover td{background:#fafafa}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.pill.allow{background:#e8f5e9;color:#2e7d32}
+.pill.deny{background:#ffebee;color:#c62828}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat-card{background:#fff;border-radius:8px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stat-num{font-size:28px;font-weight:700;color:#2e7d32}
+.stat-num.deny{color:#c62828}
+.stat-label{font-size:11px;color:#888;margin-top:2px}
+.attr-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.attr-box{background:#f8f9fa;border-radius:6px;padding:10px;text-align:center}
+.attr-box .k{font-size:11px;color:#888}
+.attr-box .v{font-size:14px;font-weight:700;color:#1b5e20;margin-top:2px}
+.loading{text-align:center;padding:30px;color:#888;font-size:14px}
+code{background:#eceff1;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="h1">👤 User View — NoSQL Access Control Demo</div>
+    <div class="subtitle">NIST IR 8504 — chỉ hiển thị những gì CHÍNH user này được phép làm</div>
+  </div>
+  <div class="user-info" id="userInfo">
+    <a href="/admin" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">🛡️ Admin Console</a>
+    <span id="loginStatus">Not logged in</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <div class="card-title">🔑 Đăng nhập</div>
+    <div class="card-subtitle">Đăng nhập bằng các tài khoản demo khác nhau để thấy quyền truy cập khác nhau — mọi kết quả bên dưới đều tính lại thật theo attributes của tài khoản đang đăng nhập (không fix cứng trên UI).</div>
+    <div class="form-row"><label>Username</label><input id="loginUser" value="bob" placeholder="username"/></div>
+    <div class="form-row"><label>Password</label><input id="loginPass" type="password" value="bob123"/></div>
+    <button class="btn" onclick="doLogin()">Login</button>
+    <div id="loginResult" class="result-box" style="display:none"></div>
+    <div style="margin-top:14px">
+      <label>Quick switch user</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+        <button class="btn outline sm" onclick="quickLogin('admin','admin123')">admin</button>
+        <button class="btn outline sm" onclick="quickLogin('alice','alice123')">alice (manager)</button>
+        <button class="btn outline sm" onclick="quickLogin('bob','bob123')">bob (employee, Eng)</button>
+        <button class="btn outline sm" onclick="quickLogin('carol','carol123')">carol (employee, Finance)</button>
+        <button class="btn outline sm" onclick="quickLogin('guest_user','guest123')">guest_user</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP (chỉ hiện khi đã login) -->
+  <div id="appArea" style="display:none">
+
+    <div class="card" id="adminBanner" style="display:none;background:#fff3e0;border-color:#ffe0b2">
+      <div style="font-size:13px;color:#e65100">🛡️ Tài khoản này có role <b>admin</b>. Bạn có thể vào <a href="/admin" style="color:#e65100;font-weight:600">Admin Console</a> để quản trị policy/resource/graph/§4 demo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🙋 Hồ sơ của tôi (subject attributes — §3.2)</div>
+      <div class="card-subtitle">Đây chính là bộ thuộc tính (role, department, clearance...) mà ABAC engine dùng để quyết định allow/deny cho mọi request của bạn.</div>
+      <div class="attr-grid" id="profileGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Quyền truy cập thật của tôi</div>
+      <div class="card-subtitle">Gọi <code>GET /api/nosql-types/my-access</code> — server chạy ABAC engine thật trên từng resource trong MongoDB với attributes của bạn. Đăng nhập tài khoản khác sẽ cho kết quả khác.</div>
+      <button class="btn sm" onclick="loadMyAccess()">🔄 Tải lại quyền truy cập</button>
+      <div id="myAccessArea"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔍 Thử mở 1 resource cụ thể</div>
+      <div class="card-subtitle">Dán Resource ID (lấy từ bảng trên) rồi bấm mở — gọi đúng endpoint <code>GET /api/nosql-types/resources/:id</code> mà Admin Console dùng, có ghi Audit Log thật nếu bị từ chối.</div>
+      <div style="display:flex;gap:10px">
+        <input id="tryResId" placeholder="Resource ID..."/>
+        <button class="btn" style="flex:0;white-space:nowrap" onclick="tryOpenResource()">Mở</button>
+      </div>
+      <div id="tryResResult"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Những gì trang User KHÔNG làm được</div>
+      <div class="card-subtitle">Để minh hoạ phân quyền thật (không chỉ ẩn UI), các nút dưới đây gọi thẳng API admin-only và cho bạn thấy response 403 thật từ server.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="btn outline sm" onclick="tryAdminOnly('GET','/auth/users')">GET /auth/users</button>
+        <button class="btn outline sm" onclick="tryAdminOnly('POST','/policies', {name:'hack-test', nosqlModel:'document', actions:['read'], effect:'allow'})">POST /policies</button>
+        <button class="btn outline sm" onclick="tryAdminOnly('GET','/nosql-types/resources')">GET /nosql-types/resources (full list)</button>
+        <button class="btn outline sm" onclick="tryAdminOnly('GET','/considerations/audit/logs')">GET /considerations/audit/logs</button>
+      </div>
+      <div id="adminOnlyResult"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API_HOST = window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin;
+const API = `${API_HOST}/api`;
+let token = localStorage.getItem('token');
+let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API+path, opts);
+  const data = await res.json().catch(()=>({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  const r = document.getElementById('loginResult');
+  r.style.display = 'block';
+  r.className = 'result-box';
+  r.textContent = 'Logging in...';
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok) { r.className='result-box deny'; r.textContent='Error: '+data.error; return; }
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('token', token);
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    r.className='result-box allow';
+    r.innerHTML = `✅ Đăng nhập thành công: <b>${data.user.username}</b> (${data.user.attributes?.role})`;
+    renderApp();
+  } catch(e) { r.className='result-box deny'; r.textContent='Connection error: '+e.message; }
+}
+
+async function quickLogin(u,p) {
+  document.getElementById('loginUser').value = u;
+  document.getElementById('loginPass').value = p;
+  await doLogin();
+}
+
+function logout() {
+  token = null; currentUser = null;
+  localStorage.removeItem('token'); localStorage.removeItem('currentUser');
+  document.getElementById('appArea').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'block';
+  document.getElementById('userInfo').innerHTML = `<a href="/admin" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">🛡️ Admin Console</a><span id="loginStatus">Not logged in</span>`;
+}
+
+function renderApp() {
+  if (!currentUser) return;
+  const a = currentUser.attributes || {};
+  const isAdmin = a.role === 'admin' || (currentUser.roles||[]).includes('admin');
+
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('appArea').style.display = 'block';
+  document.getElementById('userInfo').innerHTML =
+    `<a href="/admin" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">🛡️ Admin Console</a>
+     <span>${currentUser.username}</span><span class="badge">${a.role||'?'}</span>
+     <button class="btn sm danger" onclick="logout()">Logout</button>`;
+  document.getElementById('adminBanner').style.display = isAdmin ? 'block' : 'none';
+
+  document.getElementById('profileGrid').innerHTML = `
+    <div class="attr-box"><div class="k">role</div><div class="v">${a.role||'-'}</div></div>
+    <div class="attr-box"><div class="k">department</div><div class="v">${a.department||'-'}</div></div>
+    <div class="attr-box"><div class="k">group</div><div class="v">${a.group||'-'}</div></div>
+    <div class="attr-box"><div class="k">organization</div><div class="v">${a.organization||'-'}</div></div>
+    <div class="attr-box"><div class="k">clearance</div><div class="v">${a.clearance??'-'}</div></div>
+    <div class="attr-box"><div class="k">location</div><div class="v">${a.location||'-'}</div></div>
+  `;
+
+  loadMyAccess();
+}
+
+async function loadMyAccess() {
+  const el = document.getElementById('myAccessArea');
+  el.innerHTML = '<div class="loading">Đang đánh giá quyền thật trên MongoDB...</div>';
+  const { ok, data } = await api('/nosql-types/my-access');
+  if (!ok) { el.innerHTML = `<div class="result-box deny">${data.error||'Lỗi'}</div>`; return; }
+
+  el.innerHTML = `
+    <div class="stat-grid" style="margin-top:12px">
+      <div class="stat-card"><div class="stat-num">${data.total}</div><div class="stat-label">Tổng resource</div></div>
+      <div class="stat-card"><div class="stat-num">${data.allowedCount}</div><div class="stat-label">Được phép (allow)</div></div>
+      <div class="stat-card"><div class="stat-num deny">${data.deniedCount}</div><div class="stat-label">Bị từ chối (deny)</div></div>
+    </div>
+    <table class="table">
+      <thead><tr><th>Resource</th><th>Model</th><th>Classification</th><th>Quyết định</th><th>Policy khớp</th><th>Resource ID</th></tr></thead>
+      <tbody>
+        ${data.resources.map(r => `
+          <tr>
+            <td>${r.name}</td>
+            <td>${r.nosqlModel}</td>
+            <td>${r.classification||'-'}</td>
+            <td><span class="pill ${r.decision}">${r.decision.toUpperCase()}</span></td>
+            <td style="font-size:11px">${r.matchedPolicy||'-'}</td>
+            <td><code style="cursor:pointer" onclick="document.getElementById('tryResId').value='${r.resourceId}'">${r.resourceId}</code></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:#888;margin-top:8px">📌 ${data.note}</div>
+  `;
+}
+
+async function tryOpenResource() {
+  const id = document.getElementById('tryResId').value.trim();
+  const el = document.getElementById('tryResResult');
+  if (!id) { el.innerHTML = `<div class="result-box deny">Nhập Resource ID trước</div>`; return; }
+  const { ok, status, data } = await api(`/nosql-types/resources/${id}`);
+  if (ok) {
+    el.innerHTML = `<div class="result-box allow">
+      <b>✅ ALLOW (HTTP ${status})</b><br>
+      Policy: ${data.acDecision?.matchedPolicy||'-'}<br>
+      <pre style="white-space:pre-wrap;font-size:11px;margin-top:8px">${JSON.stringify(data.resource?.content, null, 2)}</pre>
+    </div>`;
+  } else {
+    el.innerHTML = `<div class="result-box deny">
+      <b>🚫 DENY (HTTP ${status})</b><br>
+      Lý do: ${data.reason || data.error}
+    </div>`;
+  }
+}
+
+async function tryAdminOnly(method, path, body) {
+  const el = document.getElementById('adminOnlyResult');
+  el.innerHTML = '<div class="loading">Đang gọi API...</div>';
+  const { ok, status, data } = await api(path, method, body || null);
+  el.innerHTML = `<div class="result-box ${ok?'allow':'deny'}">
+    <b>${method} /api${path}</b> → HTTP <b>${status}</b><br>
+    ${ok ? '✅ Thành công (tài khoản này có quyền admin)' : `🚫 ${data.error}${data.hint ? '<br><small>'+data.hint+'</small>' : ''}`}
+  </div>`;
+}
+
+if (token && currentUser) renderApp();
+</script>
+</body>
+</html>

@@ -5,10 +5,15 @@ const AuditLog = require('../models/AuditLog');
 const Resource = require('../models/Resource');
 const Policy = require('../models/Policy');
 const User = require('../models/User');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 const { makeAccessDecision } = require('../middleware/acEngine');
 
 const router = express.Router();
+
+// Toàn bộ §4 Considerations là công cụ phân tích/demo nội bộ (injection
+// testing, audit logs, performance benchmark, CAP probe...) — chỉ dành
+// cho admin. Chặn thật ở server, không chỉ ẩn ở UI.
+router.use(authMiddleware, requireAdmin);
 
 // §4.4 - collection riêng dùng để đo lường consistency thật trên chính
 // MongoDB đang chạy (không phải số liệu dựng sẵn)

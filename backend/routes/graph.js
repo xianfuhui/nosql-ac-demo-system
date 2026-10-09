@@ -1,6 +1,6 @@
 const express = require('express');
 const { GraphNode, GraphEdge } = require('../models/GraphNode');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -45,7 +45,7 @@ router.get('/full', authMiddleware, async (req, res) => {
 });
 
 // POST /api/graph/nodes - thêm node
-router.post('/nodes', authMiddleware, async (req, res) => {
+router.post('/nodes', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const node = await GraphNode.create(req.body);
     res.status(201).json({ node });
@@ -55,7 +55,7 @@ router.post('/nodes', authMiddleware, async (req, res) => {
 });
 
 // POST /api/graph/edges - thêm edge
-router.post('/edges', authMiddleware, async (req, res) => {
+router.post('/edges', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const edge = await GraphEdge.create(req.body);
     res.status(201).json({ edge });
@@ -65,7 +65,7 @@ router.post('/edges', authMiddleware, async (req, res) => {
 });
 
 // DELETE /api/graph/nodes/:nodeId
-router.delete('/nodes/:nodeId', authMiddleware, async (req, res) => {
+router.delete('/nodes/:nodeId', authMiddleware, requireAdmin, async (req, res) => {
   try {
     await GraphNode.findOneAndDelete({ nodeId: req.params.nodeId });
     await GraphEdge.deleteMany({ $or: [{ fromNodeId: req.params.nodeId }, { toNodeId: req.params.nodeId }] });
@@ -151,7 +151,7 @@ router.post('/check-access', authMiddleware, async (req, res) => {
  * §3.2.3 Fig.10 - Nhúng AC rule trực tiếp vào graph dưới dạng action edge
  * "user x (node) in (edge) group y (node) can read (edge) file y (node)"
  */
-router.post('/embed-ac-rule', authMiddleware, async (req, res) => {
+router.post('/embed-ac-rule', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { fromNodeId, toNodeId, action, description } = req.body;
 

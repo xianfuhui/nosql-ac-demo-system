@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NoSQL Access Control Demo — NIST IR 8504</title>
+<title>Admin Console — NoSQL Access Control Demo (NIST IR 8504)</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#222;min-height:100vh}
@@ -94,14 +94,16 @@ svg{display:block}
 
 <div class="header">
   <div>
-    <div class="h1">🔐 NoSQL Access Control Demo</div>
+    <div class="h1">🛡️ Admin Console — NoSQL Access Control Demo</div>
     <div class="subtitle">NIST IR 8504 — Node.js + MongoDB</div>
   </div>
   <div class="user-info" id="userInfo">
+    <a href="/user" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">👤 Xem như User</a>
     <span id="loginStatus">Not logged in</span>
     <button class="btn sm" onclick="showSection('login')">Login</button>
   </div>
 </div>
+<div id="roleWarning" style="display:none;background:#fff3e0;color:#e65100;font-size:12px;padding:8px 24px;border-bottom:1px solid #ffe0b2"></div>
 
 <div class="container">
   <div class="sidebar">
@@ -147,9 +149,9 @@ svg{display:block}
     <div class="section active" id="section-login">
       <div class="card" style="max-width:440px">
         <div class="card-title">🔑 Đăng nhập Demo</div>
-        <div class="card-subtitle">Test accounts: admin/admin123, alice/alice123, bob/bob123, carol/carol123, guest_user/guest123</div>
-        <div class="form-row"><label>Username</label><input id="loginUser" value="alice" placeholder="username"/></div>
-        <div class="form-row"><label>Password</label><input id="loginPass" type="password" value="alice123"/></div>
+        <div class="card-subtitle">Trang này dành cho ADMIN. Đăng nhập bằng tài khoản không phải admin vẫn xem được, nhưng các thao tác ghi (tạo/sửa/xoá policy, resource, user, graph, §4 demo) sẽ bị server trả về 403 thật — không chỉ ẩn UI.</div>
+        <div class="form-row"><label>Username</label><input id="loginUser" value="admin" placeholder="username"/></div>
+        <div class="form-row"><label>Password</label><input id="loginPass" type="password" value="admin123"/></div>
         <button class="btn" onclick="doLogin()">Login</button>
         <div id="loginResult" class="result-box" style="display:none;margin-top:12px"></div>
       </div>
@@ -446,15 +448,28 @@ async function quickLogin(u, p) {
 function updateUserInfo() {
   if (!currentUser) return;
   const a = currentUser.attributes || {};
-  document.getElementById('loginStatus').innerHTML = `<b>${currentUser.username}</b>`;
+  const isAdmin = a.role === 'admin' || (currentUser.roles||[]).includes('admin');
+  // Luôn dựng lại toàn bộ #userInfo trong MỘT lần set innerHTML (không đụng
+  // tới id con bên trong nó trước đó) — tránh lỗi "getElementById trả về
+  // null" khi hàm này được gọi lần 2 trở đi (vd: đăng nhập lại / quick
+  // switch user nhiều lần trong cùng 1 phiên) khiến UI bị treo/mất.
   document.getElementById('userInfo').innerHTML =
-    `<span>${currentUser.username}</span><span class="badge">${a.role||'?'}</span><span class="badge">Clearance: ${a.clearance||0}</span><button class="btn sm danger" onclick="logout()">Logout</button>`;
+    `<a href="/user" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">👤 Xem như User</a>
+     <span id="loginStatus"><b>${currentUser.username}</b></span><span class="badge">${a.role||'?'}</span><span class="badge">Clearance: ${a.clearance||0}</span><button class="btn sm danger" onclick="logout()">Logout</button>`;
+  const warn = document.getElementById('roleWarning');
+  if (!isAdmin) {
+    warn.style.display = 'block';
+    warn.innerHTML = `⚠️ Tài khoản "${currentUser.username}" có role "<b>${a.role}</b>", không phải admin. Server sẽ trả về <b>403</b> thật cho mọi thao tác ghi/demo §4 ở trang này (middleware <code>requireAdmin</code>). Xem quyền thật của bạn tại <a href="/user" style="color:#e65100;font-weight:600">trang User</a>.`;
+  } else {
+    warn.style.display = 'none';
+  }
 }
 
 function logout() {
   token = null; currentUser = null;
   localStorage.removeItem('token'); localStorage.removeItem('currentUser');
-  document.getElementById('userInfo').innerHTML = `<span id="loginStatus">Not logged in</span><button class="btn sm" onclick="showSection('login')">Login</button>`;
+  document.getElementById('userInfo').innerHTML = `<a href="/user" style="color:#fff;font-size:12px;opacity:.85;text-decoration:underline">👤 Xem như User</a><span id="loginStatus">Not logged in</span><button class="btn sm" onclick="showSection('login')">Login</button>`;
+  document.getElementById('roleWarning').style.display = 'none';
   showSection('login');
 }
 

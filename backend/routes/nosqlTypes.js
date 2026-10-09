@@ -1,6 +1,6 @@
 const express = require('express');
 const Resource = require('../models/Resource');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 const { acMiddleware, makeAccessDecision } = require('../middleware/acEngine');
 const AuditLog = require('../models/AuditLog');
 
@@ -102,14 +102,67 @@ router.get('/overview', async (req, res) => {
 });
 
 /**
- * GET /api/nosql-types/resources - lấy resources theo model type
+ * GET /api/nosql-types/resources - lấy TOÀN BỘ resources, không lọc theo
+ * quyền của người gọi (ADMIN ONLY). User thường dùng /my-access bên dưới.
  */
-router.get('/resources', authMiddleware, async (req, res) => {
+router.get('/resources', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { nosqlModel, limit = 20 } = req.query;
     const filter = nosqlModel ? { nosqlModel } : {};
     const resources = await Resource.find(filter).limit(parseInt(limit));
     res.json({ resources, total: resources.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/nosql-types/my-access - (AI USER) §3.3/§4.1
+ * Chạy ABAC engine THẬT cho từng resource trong DB với attribute của
+ * chính user đang đăng nhập, trả về allow/deny + lý do cho từng cái.
+ * Đây là cách "cho thấy quyền của người dùng" một cách trung thực:
+ * hai user khác nhau gọi cùng endpoint này sẽ thấy danh sách khác nhau,
+ * vì quyết định được tính lại bằng dữ liệu Policy/Resource thật trong
+ * MongoDB chứ không phải theo role hiển thị ở UI.
+ */
+router.get('/my-access', authMiddleware, async (req, res) => {
+  try {
+    const resources = await Resource.find({}).limit(200);
+    const subjectAttrs = {
+      userId: req.user._id?.toString(),
+      role: req.user.attributes?.role,
+      department: req.user.attributes?.department,
+      group: req.user.attributes?.group,
+      organization: req.user.attributes?.organization,
+      clearance: req.user.attributes?.clearance,
+      roles: req.user.roles || [],
+    };
+
+    const results = await Promise.all(resources.map(async (r) => {
+      const objectAttrs = { ...r.attributes, type: r.type };
+      const decision = await makeAccessDecision(subjectAttrs, objectAttrs, 'read');
+      return {
+        resourceId: r._id,
+        name: r.name,
+        nosqlModel: r.nosqlModel,
+        classification: r.attributes?.classification,
+        department: r.attributes?.department,
+        decision: decision.decision,
+        matchedPolicy: decision.matchedPolicy,
+        reason: decision.reason,
+      };
+    }));
+
+    const allowedCount = results.filter((r) => r.decision === 'allow').length;
+
+    res.json({
+      subject: subjectAttrs,
+      total: results.length,
+      allowedCount,
+      deniedCount: results.length - allowedCount,
+      resources: results,
+      note: 'Mỗi dòng được đánh giá trực tiếp bởi makeAccessDecision() trên Policy/Resource thật trong MongoDB, theo đúng thuộc tính của user đang đăng nhập.',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -174,9 +227,9 @@ router.get('/resources/:id', authMiddleware, async (req, res) => {
 });
 
 /**
- * POST /api/nosql-types/resources - tạo resource mới
+ * POST /api/nosql-types/resources - tạo resource mới (ADMIN ONLY)
  */
-router.post('/resources', authMiddleware, async (req, res) => {
+router.post('/resources', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const resource = await Resource.create(req.body);
     res.status(201).json({ resource });

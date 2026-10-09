@@ -1,6 +1,6 @@
 const express = require('express');
 const Policy = require('../models/Policy');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 const { makeAccessDecision } = require('../middleware/acEngine');
 
 const router = express.Router();
@@ -32,8 +32,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/policies - tạo policy mới
-router.post('/', authMiddleware, async (req, res) => {
+// POST /api/policies - tạo policy mới (ADMIN ONLY)
+router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const policyData = { ...req.body, createdBy: req.user.username };
     const policy = await Policy.create(policyData);
@@ -43,8 +43,8 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/policies/:id - cập nhật policy
-router.put('/:id', authMiddleware, async (req, res) => {
+// PUT /api/policies/:id - cập nhật policy (ADMIN ONLY)
+router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const policy = await Policy.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!policy) return res.status(404).json({ error: 'Policy not found' });
@@ -54,8 +54,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/policies/:id
-router.delete('/:id', authMiddleware, async (req, res) => {
+// DELETE /api/policies/:id (ADMIN ONLY)
+router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     await Policy.findByIdAndDelete(req.params.id);
     res.json({ message: 'Policy deleted' });

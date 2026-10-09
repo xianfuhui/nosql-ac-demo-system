@@ -2,7 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -69,8 +69,8 @@ router.get('/me', authMiddleware, (req, res) => {
   res.json({ user: req.user.toPublic() });
 });
 
-// GET /api/auth/users - list all users (admin)
-router.get('/users', authMiddleware, async (req, res) => {
+// GET /api/auth/users - list all users (ADMIN ONLY)
+router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const users = await User.find({}).select('-password');
     res.json({ users });
@@ -79,8 +79,8 @@ router.get('/users', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/auth/users/:id - update user attributes
-router.put('/users/:id', authMiddleware, async (req, res) => {
+// PUT /api/auth/users/:id - update user attributes (ADMIN ONLY)
+router.put('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { attributes, roles } = req.body;
     const user = await User.findByIdAndUpdate(
