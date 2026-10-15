@@ -1,0 +1,23 @@
+{
+  "name": "edu-nosql-access-control",
+  "version": "1.0.0",
+  "description": "Hệ thống quản lý giáo dục minh họa Access Control trên NoSQL (MongoDB) - áp dụng NIST IR 8504",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "seed": "node seed/run.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-mongo": "^5.1.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "method-override": "^3.0.0",
+    "mongodb-memory-server": "^9.4.1",
+    "mongoose": "^8.5.0"
+  }
+}

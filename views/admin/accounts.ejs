@@ -1,0 +1,32 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head flex-between">
+  <div>
+    <h1>Tài khoản & Phân quyền</h1>
+    <p class="sub">Quản lý tài khoản người dùng và gán vai trò (RBAC) — Admin mới có quyền.</p>
+  </div>
+  <a class="btn" href="/accounts/new">+ Thêm tài khoản</a>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Khoa</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+    <tbody>
+      <% users.forEach(u => { %>
+      <tr>
+        <td><%= u.username %></td>
+        <td><%= u.hoTen %></td>
+        <td><span class="badge role-<%= u.role %>"><%= u.role %></span></td>
+        <td class="small"><%= u.khoa || '—' %></td>
+        <td><span class="badge <%= u.active ? 'allow' : 'deny' %>"><%= u.active ? 'Hoạt động' : 'Đã khóa' %></span></td>
+        <td>
+          <a class="btn small secondary" href="/accounts/<%= u._id %>/edit">Sửa</a>
+          <form style="display:inline" method="POST" action="/accounts/<%= u._id %>/delete" onsubmit="return confirm('Xóa tài khoản này?')">
+            <button class="btn small danger" type="submit">Xóa</button>
+          </form>
+        </td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/layout-bottom') %>

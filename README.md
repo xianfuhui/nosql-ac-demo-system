@@ -1,329 +1,151 @@
-# 🎬 KỊCH BẢN DEMO — Access Control on NoSQL Databases
-## NIST IR 8504 | Node.js + MongoDB
+# Hệ thống Quản lý Giáo dục — minh họa Access Control trên NoSQL
 
----
+Ứng dụng web Node.js (Express + EJS) + MongoDB (Mongoose), xây dựng theo bảng chức năng
+áp dụng bài báo **"Access Control on NoSQL Databases"** (NIST IR 8504), gồm:
 
-## 🧩 Cấu trúc project (FE đã gộp vào BE)
+- Xác thực & phân quyền RBAC/ABAC (admin / giảng viên / sinh viên)
+- Quản lý tài khoản, môn học, lớp học, hồ sơ sinh viên, điểm (có lịch sử sửa), tài liệu
+- Bộ máy kiểm soát truy cập dạng **đồ thị thuộc tính** (subject attribute → action → object attribute),
+  lưu trực tiếp trong MongoDB — đúng tinh thần §3.2.3 của bài báo
+- Chống NoSQL Injection, ghi nhật ký (audit log) mọi thao tác quan trọng
+- AI hỗ trợ tạo quy tắc phân quyền từ văn bản tiếng Việt (Gemini API, §4.8)
+- **Trang Kịch bản Demo**: chạy 10 kịch bản kiểm thử THẬT trên dữ liệu MongoDB thật,
+  mỗi kịch bản ghi rõ mục tương ứng trong bài báo, input, các bước thực hiện,
+  kết quả mong đợi/thực tế, trạng thái đạt/không đạt
 
-Frontend không còn là thư mục riêng — toàn bộ được phục vụ tĩnh ngay từ
-Express server và tách làm **2 khu vực**, phân quyền **thật ở backend**
-(middleware `requireAdmin`), không chỉ ẩn ở giao diện:
+## 1. Yêu cầu hệ thống
 
-```
-backend/
-  public/
-    index.html   # trang chọn vai trò
-    admin.html   # Admin Console — §2-§4 đầy đủ, mọi thao tác ghi cần role=admin
-    user.html    # User View — chỉ xem/thao tác đúng quyền thật của user đang login
-  server.js      # app.use(express.static('public')) + route /admin, /user
-```
+- Node.js ≥ 18
+- MongoDB (một trong các cách sau):
+  - Cài MongoDB Community Server chạy local (khuyến nghị để có dữ liệu thật, bền vững)
+  - Hoặc dùng MongoDB Atlas (cloud, có gói miễn phí)
+  - Hoặc không cấu hình gì cả — hệ thống sẽ tự dùng MongoDB in-memory để chạy thử
+    nhanh (xem mục 4). Lưu ý: in-memory cần tải một binary MongoDB qua Internet,
+    nếu máy bạn có mạng bình thường (không bị chặn như môi trường sandbox đã dùng
+    để phát triển) thì cách này hoạt động tốt.
 
-Chạy:
+## 2. Cài đặt
+
 ```bash
-cd backend
+cd edu-nosql-ac
 npm install
-npm run seed     # seed 5 tài khoản demo + resources/policies
+cp .env.example .env
+```
+
+Mở `.env` và chỉnh `MONGODB_URI` nếu bạn dùng MongoDB thật, ví dụ:
+
+```
+MONGODB_URI=mongodb://127.0.0.1:27017/edu_nosql_ac
+```
+
+Nếu để nguyên `.env.example` (không có MongoDB), hệ thống sẽ tự dùng MongoDB in-memory —
+tiện để chạy thử nhanh nhưng **dữ liệu sẽ mất khi tắt server**.
+
+## 3. Tạo dữ liệu mẫu
+
+```bash
+npm run seed
+```
+
+Lệnh này tạo sẵn 6 tài khoản demo (mật khẩu đều là `123456`):
+
+| Username  | Vai trò     | Ghi chú                                  |
+|-----------|-------------|-------------------------------------------|
+| admin1    | admin       | Quản trị viên                              |
+| gv_toan   | giangvien   | Phụ trách lớp "Giải tích 1 - Nhóm 1"       |
+| gv_van    | giangvien   | Phụ trách lớp "Văn học VN - Nhóm 1"        |
+| sv_an     | sinhvien    | Học lớp Giải tích 1                        |
+| sv_binh   | sinhvien    | Học lớp Giải tích 1                        |
+| sv_chau   | sinhvien    | Học lớp Văn học VN                         |
+
+cùng 2 môn học, 2 lớp học, vài bản ghi điểm, tài liệu, 5 chính sách phân quyền ABAC (collection
+`policies`) **và một đồ thị thật** (collection `graphnodes`/`graphedges`) minh họa mô hình Graph
+của bài báo (§3.2.3) — dùng riêng cho kịch bản demo #10.
+
+**Lưu ý:** nếu dùng chế độ MongoDB in-memory, server sẽ **tự động seed lại dữ liệu mỗi lần khởi động**
+(vì CSDL in-memory không tồn tại lâu dài), nên bước `npm run seed` là tùy chọn trong trường hợp đó.
+Nếu dùng MongoDB thật, chạy `npm run seed` một lần để khởi tạo (chạy lại sẽ xóa và tạo lại dữ liệu mẫu).
+
+## 4. Chạy ứng dụng
+
+```bash
 npm start
 ```
-- `http://localhost:5000/` → trang chọn Admin / User
-- `http://localhost:5000/admin` → Admin Console
-- `http://localhost:5000/user` → User View
 
-**Phân quyền thật (không phải chỉ ẩn nút trên UI):**
-- `GET /api/nosql-types/my-access` (user bất kỳ) — chạy ABAC engine thật trên
-  từng resource trong MongoDB theo attributes của chính user đang đăng nhập,
-  trả về allow/deny + lý do. Đây là cách User View "cho thấy quyền của người
-  dùng" một cách trung thực — đăng nhập 2 tài khoản khác nhau sẽ ra 2 kết quả
-  khác nhau.
-- Các route ghi/quản trị sau yêu cầu `role=admin`, trả **403 thật** từ server
-  nếu không đủ quyền: `POST/PUT/DELETE /api/policies`, `POST/DELETE
-  /api/graph/nodes|edges`, `POST /api/graph/embed-ac-rule`, `POST
-  /api/nosql-types/resources`, `GET /api/nosql-types/resources` (danh sách
-  toàn bộ), `GET/PUT /api/auth/users*`, và toàn bộ `/api/considerations/*`
-  (§4 demo: FGAC, injection, CAP, audit, performance, AI→rule).
-- Đăng nhập tài khoản không phải admin ở `/admin` vẫn xem được giao diện,
-  nhưng mọi request ghi sẽ nhận 403 thật — minh hoạ đúng cách NoSQL hiện
-  tại thường chỉ enforce AC ở mức thô (coarse-grained), còn phần "ai được
-  sửa gì" phải tự implement thêm (§4.1, §4.2).
-
-Tài khoản demo (xem `backend/seed/seedData.js`):
-
-| username | password | role | department | clearance |
-|---|---|---|---|---|
-| admin | admin123 | admin | IT | 5 |
-| alice | alice123 | manager | Engineering | 3 |
-| bob | bob123 | employee | Engineering | 2 |
-| carol | carol123 | employee | Finance | 2 |
-| guest_user | guest123 | guest | external | 0 |
-
----
-
-## ⏱️ Thời gian: ~20-25 phút | Cấu trúc: 8 màn demo
-
----
-
-## 🎯 MỞ ĐẦU (1 phút)
-
-> **Người thuyết trình nói:**
-> "Bài báo NIST IR 8504 nghiên cứu vấn đề kiểm soát truy cập trên hệ thống NoSQL.
-> Hệ thống demo này minh họa trực tiếp từng section của bài báo trên nền Node.js + MongoDB."
-
-**Mở trình duyệt → `http://localhost:5000/`** → chọn **Admin Console** (đầy đủ §2-§4,
-sidebar trái = các section) hoặc **User View** (trang gọn, chỉ hiện đúng quyền
-thật của user đang đăng nhập).
-
----
-
-## 🎬 MÀN 1 — Login & User Attributes (2 phút)
-**→ Click: Login**
-
-### Bước 1.1 — Login với alice (manager)
-- Nhập: `alice` / `alice123` → Login
-- Kết quả hiện: **role: manager | dept: Engineering | clearance: 3**
-
-> "Mỗi user có subject attributes theo §3.2 của bài báo:
-> role, department, group, organization, clearance.
-> Đây là các node trong cây phân cấp (Fig.5)."
-
-### Bước 1.2 — Thử các user khác
-- Click **guest** → clearance: 0, role: guest
-- Click **admin** → clearance: 5, role: admin
-
-> "Ta sẽ thấy cùng một resource, các user khác nhau cho kết quả khác nhau."
-
----
-
-## 🎬 MÀN 2 — §2: 4 Loại NoSQL Model (3 phút)
-**→ Click: §2 - 4 Models**
-
-### Bước 2.1 — Giới thiệu 4 model
-- Trang load 4 card: Key-Value, Wide-Column, Document, Graph
-- **Click vào từng card** → hiện cấu trúc dữ liệu + MongoDB simulation
-
-> "§2.1 mô tả 4 loại NoSQL. Mỗi loại có cấu trúc khác nhau
-> dẫn đến thách thức access control khác nhau."
-
-| Model | Cấu trúc | AC Challenge |
-|---|---|---|
-| Key-Value | key → value | Chỉ check được ở Table level |
-| Wide-Column | column family → row → column | Cần mở rộng cây ngang |
-| Document | collection → document → field | Field-level cần add-on |
-| Graph | node → edge | Linh hoạt nhất, nhúng rule trực tiếp |
-
-### Bước 2.2 — Table 1: RDBMS vs NoSQL
-- Kéo xuống xem bảng so sánh
-
-> "Điểm quan trọng: NoSQL chọn AP trong CAP theorem,
-> đánh đổi Consistency để lấy Availability — ảnh hưởng trực tiếp đến AC (§4.4)."
-
----
-
-## 🎬 MÀN 3 — §3: Tạo Access Control Policy (4 phút)
-**→ Click: §3 - Policy Builder**
-
-### Bước 3.1 — Xem policies có sẵn
-- Scroll xuống xem bảng policies đã seed
-- Click filter: **Document** → chỉ thấy policies cho document model
-
-> "Mỗi policy là một rule theo format §3.2:
-> {subject attributes} + {object attributes} + {actions} + {effect}"
-
-### Bước 3.2 — Tạo policy mới (Wide-Column model)
-Điền form:
-- **Name:** `IoT data - only operations team`
-- **NoSQL Model:** `Wide-Column`
-- **Type:** `ABAC`
-- **Effect:** `Allow`
-- **Actions:** `read`
-- **Subject:** role=`employee`, department=`Operations`
-- **Object:** division=`Operations`, classification=`internal`
-
-→ Click **"Generate Rule Text"**
-
-> "Hệ thống tự sinh ngôn ngữ tự nhiên theo §3.2.2:
-> 'employees in department Operations can read objects of division Operations'"
-
-→ Click **"Create Policy"**
-
-> "Policy được lưu vào MongoDB, sẵn sàng để AC engine evaluate."
-
----
-
-## 🎬 MÀN 4 — §3.3: Evaluate Access Request (3 phút)
-**→ Click: ⚡ Evaluate Request**
-
-### Bước 4.1 — Chạy 4 scenarios có sẵn
-Click lần lượt từng nút:
-
-**Scenario 1:** Employee reads public → **✅ ALLOW**
-> "Policy 'Public resources - any user' match → allow"
-
-**Scenario 2:** Guest reads internal → **🚫 DENY**
-> "Policy 'Deny guest access to internal' match (priority 80) → deny trước"
-
-**Scenario 3:** Manager writes confidential → **✅ ALLOW**
-> "Policy 'Manager write access' match"
-
-**Scenario 4:** Employee reads secret → **🚫 DENY**
-> "Clearance 2 < threshold → denied by MAC policy"
-
-### Bước 4.2 — Test thủ công
-Chỉnh subject: role=`guest`, clearance=`0`
-Object: classification=`secret`
-Action: `read` → **DENY**
-
-Đổi role=`admin` → **ALLOW**
-
-> "AC engine §3.3 đánh giá theo deny-overrides:
-> nếu có policy DENY match → deny ngay dù có ALLOW."
-
----
-
-## 🎬 MÀN 5 — §3.2.3: Graph Model (3 phút)
-**→ Click: 🕸️ Graph AC**
-
-### Bước 5.1 — Xem Graph Visualization
-- Click **"Load Graph"**
-- Giải thích màu sắc:
-  - 🔵 **Xanh dương** = Subject nodes (user)
-  - 🟠 **Cam** = Object nodes (file, collection)
-  - 🟣 **Tím** = Attribute nodes (group, company, department)
-  - **Nét đứt đỏ** = Action edges = AC rule được nhúng trực tiếp
-
-> "§3.2.3 Fig.9: Attributes được mô tả qua chuỗi nodes + edges.
-> alice (node) → in (edge) → dev-team (node) → works_for (edge) → TechCorp (node)"
-
-> "§3.2.3 Fig.10: Edge có thể là permitted action.
-> Thay vì lưu rule bên ngoài, rule được nhúng thẳng vào graph!"
-
-### Bước 5.2 — Check Access qua Graph Path
-- Subject: `user:alice` | Object: `file:report-q4` | Action: `read`
-- Click **Check Access** → **✅ ALLOW** + path hiện
-
-- Đổi Subject: `user:bob` | Object: `file:financial-data` | Action: `read`
-- → **🚫 DENY** (không có path)
-
-> "Graph AC tìm đường đi từ subject đến object.
-> Nếu có edge 'can_read' → allow, không có path → deny."
-
----
-
-## 🎬 MÀN 6 — §4.1 + §4.2: FGAC & Security (2 phút)
-
-### §4.1 FGAC
-**→ Click: §4.1 FGAC**
-
-> "§4.1: NoSQL thiếu FGAC tích hợp sẵn.
-> RDBMS có 6 levels (down to cell), NoSQL chỉ có 4-5 levels."
-
-Xem bảng granularity levels:
-- Document model: database → collection → document → **field** (cần add-on)
-- RDBMS: database → schema → table → row → **column → cell** ✓
-
-### §4.2 Security — Injection Demo
-**→ Click: §4.2 Security**
-
-- Thử input: **Normal** `alice` → Safe ✅
-- Thử input: **Object injection** `{"$gt":""}` → 🚨 MALICIOUS DETECTED
-- Thử input: **$where injection** → 🚨 MALICIOUS DETECTED
-
-> "§4.2: NoSQL dễ bị injection qua object operator như $gt, $where.
-> Khác SQL injection nhưng nguy hiểm tương đương."
-
----
-
-## 🎬 MÀN 7 — §4.4 + §4.6: Consistency & Audit (2 phút)
-
-### §4.4 CAP Theorem
-**→ Click: §4.4 Consistency**
-
-> "NoSQL chọn AP → bỏ Consistency.
-> Với AC: nếu role user bị revoke trên node A nhưng chưa sync sang node B
-> → node B vẫn cho phép access trong window đồng bộ."
-
-Highlight impact:
-- RBAC: ⚠️ Affected (role assignment có thể chưa sync)
-- ABAC: ⚠️ Affected (attribute values khác nhau giữa nodes)
-- DAC: ✅ Less affected
-
-### §4.6 Audit Log
-**→ Click: §4.6 Audit**
-
-- Dashboard hiện: Total / Allow / Deny / Deny Rate
-- Bảng log chi tiết: user, action, resource, decision, policy matched
-
-> "§4.6: Mỗi access attempt đều được log — user, action, resource,
-> policy nào đã quyết định, và lý do. Đây là các requests từ các bước demo trên."
-
----
-
-## 🎬 MÀN 8 — §4.8: AI NLP → Formal AC Rule (3 phút)
-**→ Click: 🤖 §4.8 AI → Rule**
-
-### Bước 8.1 — Thử mẫu tiếng Việt
-Click **"Mẫu 1"**:
-> *"Nhân viên phòng Kỹ thuật có cấp độ clearance từ 2 trở lên được phép đọc tài liệu nội bộ thuộc phòng Engineering"*
-
-→ Click **"Parse with AI"**
-
-Kết quả AI trả về JSON:
-```json
-{
-  "subjectConditions": { "department": "Engineering", "minClearance": 2 },
-  "objectConditions":  { "division": "Engineering", "classification": "internal" },
-  "actions": ["read"],
-  "effect": "allow",
-  "nosqlModel": "document",
-  "confidence": 0.92
-}
+Mở trình duyệt tại **http://localhost:3000**, đăng nhập bằng một trong các tài khoản demo
+ở trang đăng nhập (có nút "Đăng nhập nhanh" cho từng tài khoản — mỗi lần dùng nút khác nhau
+sẽ là một phiên đăng nhập riêng, tiện để minh họa nhiều vai trò cùng lúc trên các trình duyệt/tab khác nhau).
+
+## 5. Trang Kịch bản Demo
+
+Đăng nhập bằng `admin1`, vào mục **"Kịch bản Demo"** ở sidebar. Trang này:
+
+- Chạy trực tiếp trên dữ liệu MongoDB thật (không giả lập)
+- Mỗi kịch bản ghi rõ mục/hình trong bài báo mà nó minh họa (tham chiếu chính xác §2, §3.1,
+  §3.2.2, §3.2.3 Fig.9-10, §4.1, §4.2, §4.4, §4.6, §4.8 — xem bảng bên dưới)
+- Kết quả hiển thị bằng **dữ liệu thật**: bảng document thật, bảng so sánh trước/sau (diff),
+  cây phân cấp document, sơ đồ node-edge của đồ thị thật — không mô tả bằng câu văn
+- Kịch bản #10 duyệt (BFS) một collection đồ thị thật (`graphnodes`/`graphedges`), tách biệt
+  hoàn toàn khỏi collection `policies` dùng ở các kịch bản khác, để minh họa đúng cơ chế
+  "nhúng luật phân quyền trực tiếp vào cạnh đồ thị" mà bài báo mô tả ở Fig. 10
+
+| # | Kịch bản | Mục bài báo |
+|---|----------|-------------|
+| 1 | Truy cập hợp lệ | §3.2.2 Access Control Rules (Document Model) |
+| 2 | Truy cập trái phép | §4.2 Security — backdoor access to other users' data |
+| 3 | Phân quyền chi tiết (FGAC) | §4.1 Fine-Grained Access Control |
+| 4 | Kiểm soát quyền sửa điểm | §3.2.2 · §4.1 áp dụng cho hành động update |
+| 5 | Kiểm tra NoSQL Injection | §4.2 Security — injection attacks ($where/$ne) |
+| 6 | Kiểm tra nhật ký | §4.6 Audit |
+| 7 | AI hỗ trợ tạo quy tắc | §4.8 Support for AI |
+| 8 | Thay đổi chính sách & tính nhất quán | §4.4 Data Consistency |
+| 9 | Minh họa mô hình dữ liệu NoSQL | §2 Overview · §3.1 Relationship Structures (Fig. 3, 5) |
+| 10 | Phân quyền trên dữ liệu dạng đồ thị | §3.2.3 Graph Model (Fig. 9, 10) |
+
+## 6. Chức năng AI hỗ trợ tạo quy tắc phân quyền (§4.8)
+
+Vào mục "AI hỗ trợ quy tắc" (chỉ Admin thấy), nhập Gemini API key vào ô riêng
+(hoặc đặt sẵn biến `GEMINI_API_KEY` trong `.env`), sau đó nhập quy định bằng tiếng Việt,
+ví dụ:
+
+> "Giảng viên khoa CNTT chỉ được sửa điểm của sinh viên trong lớp mình phụ trách.
+> Sinh viên chỉ được xem điểm của chính mình."
+
+AI sẽ phân tích và đề xuất các quy tắc phân quyền dạng cấu trúc (ABAC), Admin xem lại,
+chọn quy tắc muốn áp dụng rồi bấm xác nhận mới thực sự ghi vào hệ thống.
+
+## 7. Cấu trúc thư mục
+
+```
+edu-nosql-ac/
+├── app.js                   # Điểm khởi động ứng dụng
+├── config/db.js              # Kết nối MongoDB (thật hoặc in-memory fallback)
+├── models/                   # Mongoose schemas (User, MonHoc, LopHoc, Diem, Policy...)
+├── middleware/                # auth.js (RBAC), sanitize.js (chống NoSQL Injection)
+├── utils/accessControl.js    # Bộ máy kiểm soát truy cập ABAC dạng đồ thị
+├── utils/demoScenarios.js    # Logic của 10 kịch bản demo
+├── routes/                   # Một file route cho mỗi nhóm chức năng
+├── views/                    # Giao diện EJS
+├── seed/                     # Script tạo dữ liệu mẫu
+└── public/css/style.css      # Giao diện
 ```
 
-> "§4.8: AI NLP đọc văn bản tự nhiên → nhận diện subject/object/action
-> → sinh formal AC rule theo format §3.2."
+## 8. Về chính sách phân quyền (Policy)
 
-### Bước 8.2 — Tạo policy trực tiếp
-→ Click **"Create this Policy in MongoDB"**
+Mục "Chính sách phân quyền" (chỉ Admin) cho phép xem/thêm/sửa/xóa các quy tắc ABAC.
+Mỗi chính sách là một "đường đi":
 
-> "Rule được lưu vào MongoDB ngay lập tức, sẵn sàng enforce!"
+```
+(vai trò chủ thể, phạm vi) --[can <action>]--> (loại tài nguyên, khoa)
+```
 
-### Bước 8.3 — Thử nhập tự do
-Nhập văn bản tự do:
-> *"Chỉ admin mới được xóa dữ liệu tài chính bí mật"*
+ví dụ: `(giangvien, scope=assigned) --[can update]--> (diem)` nghĩa là
+"giảng viên chỉ được sửa điểm của các lớp mình được phân công" — đúng mô hình
+đồ thị thuộc tính Fig. 9–10 trong bài báo.
 
-→ AI parse → tạo policy
+## 9. Ghi chú triển khai thật
 
----
-
-## 🏁 KẾT THÚC (1 phút)
-
-> **Tóm tắt:**
-> - §2: Minh họa 4 loại NoSQL model với dữ liệu thực trong MongoDB
-> - §3: Policy Builder tạo AC rules, evaluate theo ABAC/RBAC engine
-> - §3.2.3: Graph model nhúng AC rule trực tiếp vào edges
-> - §4.1: NoSQL thiếu FGAC tích hợp sẵn, cần add-on
-> - §4.2: Dễ bị injection, cần validate input
-> - §4.4: Eventual consistency ảnh hưởng đến tính chính xác của AC
-> - §4.6: Audit log mọi access attempt
-> - §4.8: AI có thể tự động parse văn bản → sinh AC rule
-
----
-
-## 💡 CÂU HỎI DỰ KIẾN & TRẢ LỜI
-
-**Q: Tại sao dùng MongoDB để demo các model khác (Key-Value, Wide-Column)?**
-> A: MongoDB mô phỏng tất cả 4 model thông qua cách tổ chức collections.
-> Key-Value = collection {_id, value}, Wide-Column = collection với nhiều fields.
-> Thực tế production dùng Redis (KV), Cassandra (WC), Neo4j (Graph).
-
-**Q: ABAC engine có scale được không?**
-> A: Demo dùng in-memory evaluation. Production cần cache policies,
-> index attributes, dùng policy engine như OPA (Open Policy Agent).
-
-**Q: §4.8 AI có chính xác không?**
-> A: Confidence score cho biết độ tin cậy. Cần human review trước khi enforce.
-> Đây là hướng nghiên cứu §4.8 đề xuất, chưa phải production-ready.
-
-**Q: Graph model phức tạp hơn, có đáng dùng không?**
-> A: §3.2.3 nêu rõ: Graph linh hoạt nhất (unlimited edges/nodes),
-> FGAC tốt nhất, nhưng query phức tạp hơn và cần học Cypher/Gremlin.
-
+- Để triển khai thật, đổi `SESSION_SECRET` trong `.env`, dùng MongoDB thật (không dùng in-memory),
+  và cân nhắc dùng HTTPS + `cookie.secure = true` cho session.
+- Tính năng "Quản lý tài liệu" ở bản demo lưu nội dung dạng văn bản thay vì upload file thật,
+  để tập trung minh họa access control thay vì xử lý file.

@@ -1,0 +1,38 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head flex-between">
+  <div>
+    <h1>Môn học</h1>
+    <p class="sub"><%= user.role === 'admin' ? 'Toàn bộ môn học trong hệ thống.' : 'Các môn học bạn được phân công phụ trách.' %></p>
+  </div>
+  <% if (user.role === 'admin') { %><a class="btn" href="/courses/new">+ Thêm môn học</a><% } %>
+</div>
+
+<div class="card">
+  <% if (courses.length === 0) { %>
+  <div class="empty-state">Chưa có môn học nào.</div>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Mã môn</th><th>Tên môn</th><th>Khoa</th><th>Tín chỉ</th><th>Giảng viên</th><% if (user.role==='admin') { %><th>Thao tác</th><% } %></tr></thead>
+    <tbody>
+      <% courses.forEach(c => { %>
+      <tr>
+        <td><%= c.maMon %></td>
+        <td><%= c.tenMon %></td>
+        <td><%= c.khoa %></td>
+        <td><%= c.soTinChi %></td>
+        <td class="small"><%= c.giangVienIds.map(g=>g.hoTen).join(', ') || '—' %></td>
+        <% if (user.role==='admin') { %>
+        <td>
+          <a class="btn small secondary" href="/courses/<%= c._id %>/edit">Sửa</a>
+          <form style="display:inline" method="POST" action="/courses/<%= c._id %>/delete" onsubmit="return confirm('Xóa môn học này?')">
+            <button class="btn small danger" type="submit">Xóa</button>
+          </form>
+        </td>
+        <% } %>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('../partials/layout-bottom') %>

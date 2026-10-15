@@ -1,0 +1,31 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head">
+  <h1>Tìm kiếm</h1>
+  <p class="sub">Kết quả luôn bị giới hạn trong phạm vi dữ liệu bạn được phép xem — dù từ khóa trùng với dữ liệu ngoài phạm vi.</p>
+</div>
+<div class="card">
+  <form method="GET" action="/search">
+    <input type="text" name="q" placeholder="Nhập tên sinh viên, mã/tên môn học, mã/tên lớp..." value="<%= q %>" />
+  </form>
+</div>
+
+<% if (q) { %>
+<div class="grid cols-3">
+  <div class="card">
+    <h2>Sinh viên (<%= students.length %>)</h2>
+    <% if (students.length===0) { %><p class="muted small">Không có kết quả.</p><% } %>
+    <% students.forEach(s => { %><p class="small"><%= s.hoTen %> <span class="muted">(<%= s.username %>)</span></p><% }) %>
+  </div>
+  <div class="card">
+    <h2>Môn học (<%= courses.length %>)</h2>
+    <% if (courses.length===0) { %><p class="muted small">Không có kết quả.</p><% } %>
+    <% courses.forEach(c => { %><p class="small"><%= c.tenMon %> <span class="muted">(<%= c.maMon %>)</span></p><% }) %>
+  </div>
+  <div class="card">
+    <h2>Lớp học (<%= classes.length %>)</h2>
+    <% if (classes.length===0) { %><p class="muted small">Không có kết quả.</p><% } %>
+    <% classes.forEach(c => { %><p class="small"><%= c.tenLop %> <span class="muted">(<%= c.maLop %>)</span></p><% }) %>
+  </div>
+</div>
+<% } %>
+<%- include('../partials/layout-bottom') %>

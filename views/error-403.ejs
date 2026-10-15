@@ -1,0 +1,13 @@
+<%- include('partials/layout-top', { title: 'Từ chối truy cập', active: '' }) %>
+<div class="page-head">
+  <h1>⛔ 403 — Truy cập bị từ chối</h1>
+  <p class="sub">Hệ thống đã kiểm tra chính sách phân quyền (ABAC) và từ chối yêu cầu này. Sự kiện đã được ghi vào nhật ký.</p>
+</div>
+<div class="card">
+  <div class="alert error">
+    <b>Lý do:</b> <%= reason %>
+  </div>
+  <p class="muted small">Đây là minh họa cho mục "Ngăn chặn truy cập trái phép" và §4.2 Security trong bài báo NIST IR 8504 — hệ thống từ chối mọi yêu cầu không khớp policy nào, kể cả khi người dùng sửa trực tiếp URL hoặc ID.</p>
+  <a class="btn secondary" href="/dashboard">← Quay về trang chủ</a>
+</div>
+<%- include('partials/layout-bottom') %>

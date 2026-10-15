@@ -1,0 +1,24 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head"><h1>Đăng tài liệu mới</h1></div>
+<div class="card" style="max-width:560px">
+  <form method="POST" action="/documents">
+    <label class="first">Tên tài liệu</label>
+    <input type="text" name="tenTaiLieu" required />
+    <label>Mô tả</label>
+    <input type="text" name="moTa" />
+    <label>Môn học</label>
+    <select name="monHocId" required>
+      <% monHocs.forEach(m => { %><option value="<%= m._id %>"><%= m.tenMon %></option><% }) %>
+    </select>
+    <label>Lớp học (để trống = áp dụng mọi lớp của môn)</label>
+    <select name="lopHocId">
+      <option value="">— Tất cả lớp —</option>
+      <% lopHocs.forEach(l => { %><option value="<%= l._id %>"><%= l.tenLop %></option><% }) %>
+    </select>
+    <label>Nội dung (demo: nhập văn bản thay vì upload file)</label>
+    <textarea name="noiDung" placeholder="Nội dung tóm tắt / ghi chú bài giảng..."></textarea>
+    <button class="btn" type="submit" style="margin-top:16px">Đăng tài liệu</button>
+    <a class="btn secondary" href="/documents">Hủy</a>
+  </form>
+</div>
+<%- include('../partials/layout-bottom') %>

@@ -1,0 +1,34 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head flex-between">
+  <div>
+    <h1>Lớp học</h1>
+    <p class="sub">
+      <% if (user.role==='admin') { %>Toàn bộ lớp học trong hệ thống.
+      <% } else if (user.role==='giangvien') { %>Các lớp bạn phụ trách giảng dạy.
+      <% } else { %>Các lớp bạn đang theo học.<% } %>
+    </p>
+  </div>
+  <% if (user.role === 'admin') { %><a class="btn" href="/classes/new">+ Thêm lớp học</a><% } %>
+</div>
+<div class="card">
+  <% if (classes.length === 0) { %>
+  <div class="empty-state">Chưa có lớp học nào.</div>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Mã lớp</th><th>Tên lớp</th><th>Môn học</th><th>Giảng viên</th><th>Sĩ số</th><th></th></tr></thead>
+    <tbody>
+      <% classes.forEach(c => { %>
+      <tr>
+        <td><%= c.maLop %></td>
+        <td><%= c.tenLop %></td>
+        <td class="small"><%= c.monHocId ? c.monHocId.tenMon : '—' %></td>
+        <td class="small"><%= c.giangVienId ? c.giangVienId.hoTen : '—' %></td>
+        <td><%= c.sinhVienIds.length %>/<%= c.siSoToiDa %></td>
+        <td><a class="btn small secondary" href="/classes/<%= c._id %>">Chi tiết</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('../partials/layout-bottom') %>

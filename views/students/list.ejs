@@ -1,0 +1,25 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head">
+  <h1>Hồ sơ sinh viên</h1>
+  <p class="sub"><%= user.role==='admin' ? 'Toàn bộ sinh viên trong hệ thống.' : 'Chỉ hiển thị sinh viên thuộc lớp bạn phụ trách (phân quyền chi tiết).' %></p>
+</div>
+<div class="card">
+  <% if (students.length===0) { %><div class="empty-state">Không có sinh viên nào trong phạm vi quyền của bạn.</div>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Họ tên</th><th>Username</th><th>Khoa</th><th>Lớp</th><th></th></tr></thead>
+    <tbody>
+      <% students.forEach(s => { %>
+      <tr>
+        <td><%= s.hoTen %></td>
+        <td><%= s.username %></td>
+        <td class="small"><%= s.khoa || '—' %></td>
+        <td class="small"><%= s.lopId ? s.lopId.tenLop : '—' %></td>
+        <td><a class="btn small secondary" href="/students/<%= s._id %>">Xem hồ sơ</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('../partials/layout-bottom') %>

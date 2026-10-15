@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title + ' · HTQL Giáo dục' : 'Hệ thống quản lý giáo dục' %></title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <div>
+      Hệ thống Quản lý Giáo dục
+      <small>Access Control trên NoSQL · minh họa NIST IR 8504</small>
+    </div>
+  </div>
+  <% if (currentUser) { %>
+  <div class="userbox">
+    <span><%= currentUser.hoTen %></span>
+    <span class="badge role-<%= currentUser.role %>"><%= currentUser.role %></span>
+    <form action="/logout" method="POST">
+      <button class="logout" type="submit">Đăng xuất</button>
+    </form>
+  </div>
+  <% } %>
+</div>
+<div class="layout">
+  <% if (currentUser) { %>
+  <div class="sidebar">
+    <div class="group-title">Tổng quan</div>
+    <a class="navlink <%= active==='dashboard'?'active':'' %>" href="/dashboard"><span class="ic">▣</span> Trang chủ</a>
+
+    <% if (currentUser.role === 'admin') { %>
+    <div class="group-title">Quản trị</div>
+    <a class="navlink <%= active==='accounts'?'active':'' %>" href="/accounts"><span class="ic">◉</span> Tài khoản & Phân quyền</a>
+    <a class="navlink <%= active==='policies'?'active':'' %>" href="/policies"><span class="ic">⬡</span> Chính sách phân quyền</a>
+    <% } %>
+
+    <div class="group-title">Đào tạo</div>
+    <a class="navlink <%= active==='courses'?'active':'' %>" href="/courses"><span class="ic">▤</span> Môn học</a>
+    <a class="navlink <%= active==='classes'?'active':'' %>" href="/classes"><span class="ic">▥</span> Lớp học</a>
+    <% if (currentUser.role !== 'sinhvien') { %>
+    <a class="navlink <%= active==='students'?'active':'' %>" href="/students"><span class="ic">☺</span> Hồ sơ sinh viên</a>
+    <% } %>
+    <a class="navlink <%= active==='grades'?'active':'' %>" href="/grades"><span class="ic">✓</span> Điểm</a>
+    <a class="navlink <%= active==='documents'?'active':'' %>" href="/documents"><span class="ic">▦</span> Tài liệu</a>
+    <a class="navlink <%= active==='search'?'active':'' %>" href="/search"><span class="ic">⚲</span> Tìm kiếm</a>
+
+    <% if (currentUser.role === 'admin') { %>
+    <div class="group-title">Giám sát</div>
+    <a class="navlink <%= active==='logs'?'active':'' %>" href="/logs"><span class="ic">≡</span> Nhật ký hệ thống</a>
+    <a class="navlink <%= active==='ai'?'active':'' %>" href="/ai"><span class="ic">✦</span> AI hỗ trợ quy tắc</a>
+    <a class="navlink <%= active==='demo'?'active':'' %>" href="/demo"><span class="ic">▶</span> Kịch bản Demo</a>
+    <% } %>
+  </div>
+  <% } %>
+  <div class="main">

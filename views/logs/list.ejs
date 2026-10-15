@@ -1,0 +1,50 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head">
+  <h1>Nhật ký hệ thống</h1>
+  <p class="sub">Ghi lại mọi thao tác quan trọng (đăng nhập, truy cập tài nguyên, sửa điểm...) kèm kết quả cho phép/từ chối — bài báo §4.6 Audit.</p>
+</div>
+
+<div class="card">
+  <form method="GET" style="display:flex; gap:10px; align-items:flex-end">
+    <div style="flex:1">
+      <label class="first">Lọc theo kết quả</label>
+      <select name="ketQua">
+        <option value="">— Tất cả —</option>
+        <option value="allow" <%= filter.ketQua==='allow'?'selected':'' %>>allow</option>
+        <option value="deny" <%= filter.ketQua==='deny'?'selected':'' %>>deny</option>
+        <option value="success" <%= filter.ketQua==='success'?'selected':'' %>>success</option>
+        <option value="fail" <%= filter.ketQua==='fail'?'selected':'' %>>fail</option>
+      </select>
+    </div>
+    <div style="flex:1">
+      <label class="first">Tên đăng nhập</label>
+      <input type="text" name="user" value="<%= filter.user || '' %>" placeholder="VD: sv_an" />
+    </div>
+    <button class="btn" type="submit">Lọc</button>
+    <a class="btn secondary" href="/logs">Xóa lọc</a>
+  </form>
+</div>
+
+<div class="card">
+  <% if (logs.length===0) { %><div class="empty-state">Không có log phù hợp bộ lọc.</div>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Thời gian</th><th>Người dùng</th><th>Vai trò</th><th>Hành động</th><th>Đối tượng</th><th>Kết quả</th><th>Chi tiết</th><th>Kịch bản demo</th></tr></thead>
+    <tbody>
+      <% logs.forEach(l => { %>
+      <tr>
+        <td class="small"><%= new Date(l.thoiGian).toLocaleString('vi-VN') %></td>
+        <td class="small"><%= l.tenDangNhap %></td>
+        <td><% if (l.vaiTro) { %><span class="badge role-<%= l.vaiTro %>"><%= l.vaiTro %></span><% } %></td>
+        <td class="small"><%= l.hanhDong %></td>
+        <td class="small"><%= l.doiTuong %></td>
+        <td><span class="badge <%= l.ketQua %>"><%= l.ketQua %></span></td>
+        <td class="small muted"><%= l.chiTiet %></td>
+        <td class="small"><%= l.kichBanDemo || '—' %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('../partials/layout-bottom') %>

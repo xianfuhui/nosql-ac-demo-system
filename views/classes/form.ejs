@@ -1,0 +1,30 @@
+<%- include('../partials/layout-top', { title, active }) %>
+<div class="page-head"><h1><%= lop ? 'Sửa lớp học' : 'Thêm lớp học' %></h1></div>
+<% if (error) { %><div class="alert error"><%= error %></div><% } %>
+<div class="card" style="max-width:520px">
+  <form method="POST" action="<%= lop ? '/classes/' + lop._id : '/classes' %>">
+    <label class="first">Mã lớp</label>
+    <input type="text" name="maLop" value="<%= lop ? lop.maLop : '' %>" <%= lop ? 'readonly' : 'required' %> />
+    <label>Tên lớp</label>
+    <input type="text" name="tenLop" value="<%= lop ? lop.tenLop : '' %>" required />
+    <label>Môn học</label>
+    <select name="monHocId" required>
+      <% monHocs.forEach(m => { %>
+      <option value="<%= m._id %>" <%= lop && String(lop.monHocId)===String(m._id) ? 'selected':'' %>><%= m.tenMon %> (<%= m.maMon %>)</option>
+      <% }) %>
+    </select>
+    <label>Giảng viên phụ trách</label>
+    <select name="giangVienId" required>
+      <% giangViens.forEach(g => { %>
+      <option value="<%= g._id %>" <%= lop && String(lop.giangVienId)===String(g._id) ? 'selected':'' %>><%= g.hoTen %> (<%= g.username %>)</option>
+      <% }) %>
+    </select>
+    <label>Khoa</label>
+    <input type="text" name="khoa" value="<%= lop ? lop.khoa : '' %>" required />
+    <label>Sĩ số tối đa</label>
+    <input type="number" name="siSoToiDa" value="<%= lop ? lop.siSoToiDa : 60 %>" />
+    <button class="btn" type="submit" style="margin-top:16px">Lưu</button>
+    <a class="btn secondary" href="/classes">Hủy</a>
+  </form>
+</div>
+<%- include('../partials/layout-bottom') %>

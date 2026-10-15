@@ -1,0 +1,62 @@
+<%- include('partials/layout-top', { title, active }) %>
+<div class="page-head">
+  <h1>Chào, <%= user.hoTen %> 👋</h1>
+  <p class="sub">
+    Vai trò: <span class="badge role-<%= user.role %>"><%= user.role %></span>
+    <% if (user.khoa) { %> · Khoa: <%= user.khoa %><% } %>
+  </p>
+</div>
+
+<% if (user.role === 'admin') { %>
+<div class="grid cols-4">
+  <div class="stat"><div class="num"><%= stats.soTaiKhoan %></div><div class="label">Tài khoản</div></div>
+  <div class="stat"><div class="num"><%= stats.soMonHoc %></div><div class="label">Môn học</div></div>
+  <div class="stat"><div class="num"><%= stats.soLopHoc %></div><div class="label">Lớp học</div></div>
+  <div class="stat"><div class="num"><%= stats.soTaiLieu %></div><div class="label">Tài liệu</div></div>
+</div>
+<% } else if (user.role === 'giangvien') { %>
+<div class="grid cols-3">
+  <div class="stat"><div class="num"><%= stats.soLopPhuTrach %></div><div class="label">Lớp phụ trách</div></div>
+  <div class="stat"><div class="num"><%= stats.soSinhVien %></div><div class="label">Sinh viên quản lý</div></div>
+  <div class="stat"><div class="num"><%= stats.soTaiLieu %></div><div class="label">Tài liệu đã đăng</div></div>
+</div>
+<% } else { %>
+<div class="grid cols-3">
+  <div class="stat"><div class="num"><%= stats.soMonDaHoc %></div><div class="label">Môn đã học</div></div>
+  <div class="stat"><div class="num"><%= stats.diemTrungBinh %></div><div class="label">Điểm trung bình</div></div>
+  <div class="stat"><div class="num"><%= stats.soTaiLieu %></div><div class="label">Tài liệu lớp mình</div></div>
+</div>
+<% } %>
+
+<div class="card">
+  <h2>Hoạt động gần đây <% if (user.role==='admin') { %>(toàn hệ thống)<% } else { %>(của bạn)<% } %></h2>
+  <% if (recentLogs.length === 0) { %>
+    <p class="muted small">Chưa có dữ liệu nhật ký.</p>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Thời gian</th><th>Người dùng</th><th>Hành động</th><th>Kết quả</th><th>Chi tiết</th></tr></thead>
+    <tbody>
+      <% recentLogs.forEach(l => { %>
+      <tr>
+        <td class="small"><%= new Date(l.thoiGian).toLocaleString('vi-VN') %></td>
+        <td class="small"><%= l.tenDangNhap %></td>
+        <td class="small"><%= l.hanhDong %></td>
+        <td><span class="badge <%= l.ketQua %>"><%= l.ketQua %></span></td>
+        <td class="small muted"><%= l.chiTiet %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+  <% if (user.role === 'admin') { %>
+  <p style="margin-top:12px"><a href="/logs">Xem toàn bộ nhật ký →</a></p>
+  <% } %>
+</div>
+
+<div class="card" style="background:var(--blue-light); border:1px solid #cfe0ff;">
+  <h2 class="mt-0">💡 Khám phá trang Kịch bản Demo</h2>
+  <p class="small">Chạy trực tiếp 10 kịch bản kiểm thử truy cập hợp lệ/trái phép, phân quyền chi tiết, NoSQL Injection, nhật ký, mô hình đồ thị... trên dữ liệu thật trong MongoDB.</p>
+  <a class="btn" href="/demo">Vào trang Kịch bản Demo →</a>
+</div>
+
+<%- include('partials/layout-bottom') %>
