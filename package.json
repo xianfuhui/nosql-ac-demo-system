@@ -1,23 +1,22 @@
 {
-  "name": "edu-nosql-access-control",
+  "name": "so-diem",
   "version": "1.0.0",
-  "description": "Hệ thống quản lý giáo dục minh họa Access Control trên NoSQL (MongoDB) - áp dụng NIST IR 8504",
-  "main": "app.js",
+  "description": "Nhập dữ liệu học sinh (file hoặc link) vào MongoDB, trực quan hoá và phân quyền theo trường dữ liệu (ABAC, theo NIST IR 8504)",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node --watch app.js",
-    "seed": "node seed/run.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/run.js",
+    "notebook:example": "python3 notebook/run_notebook.py --notebook notebook/NoSQL_Access_Control_School_Demo.ipynb --out notebook/example --csv sample/sample-synthetic-students.csv --label \"Kết quả mẫu (dữ liệu tổng hợp cùng schema UCI)\""
   },
-  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "connect-mongo": "^5.1.0",
-    "dotenv": "^16.4.5",
-    "ejs": "^3.1.10",
+    "chart.js": "^4.4.3",
     "express": "^4.19.2",
-    "express-session": "^1.18.0",
-    "method-override": "^3.0.0",
-    "mongodb-memory-server": "^9.4.1",
-    "mongoose": "^8.5.0"
-  }
+    "mongodb": "^6.8.0",
+    "multer": "^2.0.0"
+  },
+  "license": "MIT"
 }

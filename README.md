@@ -1,151 +1,115 @@
-# Hệ thống Quản lý Giáo dục — minh họa Access Control trên NoSQL
+# Sổ điểm
 
-Ứng dụng web Node.js (Express + EJS) + MongoDB (Mongoose), xây dựng theo bảng chức năng
-áp dụng bài báo **"Access Control on NoSQL Databases"** (NIST IR 8504), gồm:
+Web Node.js để **tải file hoặc dán link** dữ liệu học sinh, **lưu vào MongoDB**, rồi **trực quan hoá** và **xem hồ sơ theo vai trò** (phân quyền theo trường dữ liệu, theo ý tưởng của NIST IR 8504). Web còn **chạy notebook `.ipynb` trên chính dữ liệu trong MongoDB** và hiển thị đầy đủ kết quả (bảng, biểu đồ, các demo bám theo bài báo).
 
-- Xác thực & phân quyền RBAC/ABAC (admin / giảng viên / sinh viên)
-- Quản lý tài khoản, môn học, lớp học, hồ sơ sinh viên, điểm (có lịch sử sửa), tài liệu
-- Bộ máy kiểm soát truy cập dạng **đồ thị thuộc tính** (subject attribute → action → object attribute),
-  lưu trực tiếp trong MongoDB — đúng tinh thần §3.2.3 của bài báo
-- Chống NoSQL Injection, ghi nhật ký (audit log) mọi thao tác quan trọng
-- AI hỗ trợ tạo quy tắc phân quyền từ văn bản tiếng Việt (Gemini API, §4.8)
-- **Trang Kịch bản Demo**: chạy 10 kịch bản kiểm thử THẬT trên dữ liệu MongoDB thật,
-  mỗi kịch bản ghi rõ mục tương ứng trong bài báo, input, các bước thực hiện,
-  kết quả mong đợi/thực tế, trạng thái đạt/không đạt
+## Chạy
 
-## 1. Yêu cầu hệ thống
-
-- Node.js ≥ 18
-- MongoDB (một trong các cách sau):
-  - Cài MongoDB Community Server chạy local (khuyến nghị để có dữ liệu thật, bền vững)
-  - Hoặc dùng MongoDB Atlas (cloud, có gói miễn phí)
-  - Hoặc không cấu hình gì cả — hệ thống sẽ tự dùng MongoDB in-memory để chạy thử
-    nhanh (xem mục 4). Lưu ý: in-memory cần tải một binary MongoDB qua Internet,
-    nếu máy bạn có mạng bình thường (không bị chặn như môi trường sandbox đã dùng
-    để phát triển) thì cách này hoạt động tốt.
-
-## 2. Cài đặt
+Cần Node.js 18 trở lên và một MongoDB đang chạy. Muốn chạy lại notebook trên dữ liệu của bạn cần thêm Python 3 với `pandas numpy networkx matplotlib` (`pip install pandas numpy networkx matplotlib`). Không có Python vẫn xem được kết quả mẫu đi kèm.
 
 ```bash
-cd edu-nosql-ac
 npm install
-cp .env.example .env
+docker compose up -d          # MongoDB 7 ở cổng 27017 (bỏ qua nếu đã có MongoDB)
+npm start                     # mở http://localhost:3000
 ```
 
-Mở `.env` và chỉnh `MONGODB_URI` nếu bạn dùng MongoDB thật, ví dụ:
+Biến môi trường (xem `.env.example`): `PORT`, `MONGODB_URI` (mặc định `mongodb://127.0.0.1:27017`), `MONGODB_DB` (mặc định `so_diem`).
+Dùng file `.env`: `node --env-file=.env server.js`.
+
+## Dùng thử nhanh
+
+1. Tab **Dán link**, bấm *Dùng dataset Student Performance của UCI*, rồi *Tải và nhập*.
+   Link là `https://archive.ics.uci.edu/static/public/320/student+performance.zip`. Ứng dụng tự giải nén zip (kể cả zip lồng nhau) và lấy `student-mat.csv`.
+2. Hoặc tab **Tải file lên**, chọn `sample/sample-synthetic-students.csv` (dữ liệu **tổng hợp**, cùng schema UCI, chỉ để thử khi chưa có mạng).
+3. Kéo xuống phần **Hồ sơ theo vai trò**, đổi vai trò và xem các ô bị che thay đổi.
+
+## Định dạng nhập được
+
+CSV/TSV (tự nhận dấu `,` `;` tab `|`, hỗ trợ ô trong nháy kép), JSON (mảng đối tượng hoặc `{data|records|rows|items: [...]}`), ZIP chứa các file trên. Tối đa 50 MB, 100.000 dòng, 200 cột. Mỗi cột tự được nhận là số, phân loại hoặc văn bản.
+Link phải trỏ thẳng tới file, không phải trang HTML (trang dataset của UCI sẽ bị từ chối kèm hướng dẫn).
+
+## Dữ liệu trong MongoDB
+
+| Collection | Nội dung |
+|---|---|
+| `datasets` | tên, nguồn, số dòng, danh sách cột và kiểu |
+| `records` | `{datasetId, rid, data:{...}}`, mỗi dòng là một document |
+| `policies` | luật truy cập (tự tạo lần chạy đầu, sửa trực tiếp được) |
+| `audit` | nhật ký mỗi lần xem hồ sơ: vai trò, số dòng, tỉ lệ ô bị che |
+
+## Liên kết với notebook .ipynb
 
 ```
-MONGODB_URI=mongodb://127.0.0.1:27017/edu_nosql_ac
+MongoDB  --(Node xuất CSV)-->  Python chạy notebook  --(result.json)-->  Node  -->  trang web
 ```
 
-Nếu để nguyên `.env.example` (không có MongoDB), hệ thống sẽ tự dùng MongoDB in-memory —
-tiện để chạy thử nhanh nhưng **dữ liệu sẽ mất khi tắt server**.
+Phần **Sổ tay phân tích** ở cuối trang:
 
-## 3. Tạo dữ liệu mẫu
+1. Luôn có sẵn **kết quả mẫu** (chạy trên dữ liệu tổng hợp) nên xem được ngay, kể cả khi chưa có Python.
+2. Bấm **Chạy notebook với dataset này**: Node xuất dataset đang chọn từ MongoDB ra file CSV tạm, gọi `notebook/run_notebook.py`, notebook đọc CSV qua biến môi trường `LOCAL_CSV`. Chạy xong, web hiển thị toàn bộ nội dung: markdown, mã nguồn (đóng/mở), bảng và biểu đồ. File CSV tạm bị xoá ngay sau khi chạy.
+3. **Tải notebook gốc** hoặc **Tải bản đã chạy** (có sẵn output, mở được bằng Jupyter/Colab).
+
+Điều kiện: dataset phải có các cột `school, age, G1, G2, G3` (số, trừ `school`), vì notebook viết cho dữ liệu học sinh kiểu UCI. Dataset khác vẫn dùng được các biểu đồ và bảng phân quyền của web.
+Mỗi lúc chỉ chạy một notebook, tối đa 5 phút; giữ 6 lần chạy gần nhất trong `notebook/runs/`. Đặt biến `PYTHON` nếu lệnh Python của bạn không phải `python3` (Windows mặc định dùng `python`).
+Tạo lại kết quả mẫu: `npm run notebook:example`. Notebook cũng chạy độc lập trong Jupyter/Colab, không cần web.
+
+API: `GET /api/notebook/info`, `POST /api/notebook/run {datasetId}`, `GET /api/notebook/jobs/:id`, `GET /api/notebook/result[?jobId=]`, `GET /api/notebook/download?kind=source|jobId=`.
+
+## Phân quyền (liên hệ bài báo)
+
+- Trường dữ liệu chia thành nhóm `academic`, `personal`, `family`, `other` (xem `lib/acl.js`; cột lạ vào `other`).
+- Luật mặc định từ chối. Mỗi luật gồm vai trò, nhóm trường, điều kiện (`trained`, `at_risk`). Deny ghi đè permit.
+- Subject có thuộc tính trường học và phải khớp trường học của hồ sơ (object).
+- Ô bị che **không rời khỏi server**. Ô tìm kiếm chỉ tìm trong các ô vai trò đó được xem, để không dò ra dữ liệu bị che.
+
+| Vai trò | Được xem | Điều kiện |
+|---|---|---|
+| Giáo viên | học tập | đã tập huấn bảo mật |
+| Tư vấn viên | cá nhân | không |
+| Tư vấn viên | học tập | học sinh có G2 < 10 |
+| Quản trị | tất cả | không |
+
+**Lưu ý:** vai trò hiện được chọn ngay trên giao diện để minh hoạ, **chưa có đăng nhập**. Khi triển khai thật cần xác thực (session/JWT) và lấy vai trò từ phía server.
+
+## API
+
+```
+GET    /api/health
+GET    /api/datasets
+POST   /api/datasets/upload        multipart: file, name
+POST   /api/datasets/url           JSON: {url, name}
+DELETE /api/datasets/:id
+GET    /api/datasets/:id/stats
+GET    /api/datasets/:id/groupby?by=school&metric=G3
+GET    /api/datasets/:id/scatter?x=G1&y=G3
+GET    /api/datasets/:id/records?role=teacher&school=GP&trained=true&page=1&q=
+GET    /api/policies
+GET    /api/audit
+```
+
+## Bảo mật khi nhập link
+
+Server chặn link tới địa chỉ nội bộ (localhost, 10.x, 192.168.x, 169.254.x…), kiểm tra lại sau mỗi lần chuyển hướng, giới hạn 30 giây và 50 MB. Đặt `ALLOW_PRIVATE_URLS=1` chỉ khi cần thử với máy nội bộ.
+
+## Kiểm thử
 
 ```bash
-npm run seed
+npm test
 ```
 
-Lệnh này tạo sẵn 6 tài khoản demo (mật khẩu đều là `123456`):
+Chạy 30 kiểm thử cho phần đọc file, thống kê, phân quyền, chống SSRF, các route và liên kết notebook (có chạy Python thật qua Node). Các route được thử bằng bản giả lập express/mongodb trong `test/stubs`, nên chạy được cả khi chưa có MongoDB; riêng phần notebook cần Python và các thư viện ở trên.
+`node test/preview-server.js` mở bản xem thử giao diện ở cổng 3111 (Chart.js được thay bằng bản rỗng nên biểu đồ để trống).
 
-| Username  | Vai trò     | Ghi chú                                  |
-|-----------|-------------|-------------------------------------------|
-| admin1    | admin       | Quản trị viên                              |
-| gv_toan   | giangvien   | Phụ trách lớp "Giải tích 1 - Nhóm 1"       |
-| gv_van    | giangvien   | Phụ trách lớp "Văn học VN - Nhóm 1"        |
-| sv_an     | sinhvien    | Học lớp Giải tích 1                        |
-| sv_binh   | sinhvien    | Học lớp Giải tích 1                        |
-| sv_chau   | sinhvien    | Học lớp Văn học VN                         |
-
-cùng 2 môn học, 2 lớp học, vài bản ghi điểm, tài liệu, 5 chính sách phân quyền ABAC (collection
-`policies`) **và một đồ thị thật** (collection `graphnodes`/`graphedges`) minh họa mô hình Graph
-của bài báo (§3.2.3) — dùng riêng cho kịch bản demo #10.
-
-**Lưu ý:** nếu dùng chế độ MongoDB in-memory, server sẽ **tự động seed lại dữ liệu mỗi lần khởi động**
-(vì CSDL in-memory không tồn tại lâu dài), nên bước `npm run seed` là tùy chọn trong trường hợp đó.
-Nếu dùng MongoDB thật, chạy `npm run seed` một lần để khởi tạo (chạy lại sẽ xóa và tạo lại dữ liệu mẫu).
-
-## 4. Chạy ứng dụng
-
-```bash
-npm start
-```
-
-Mở trình duyệt tại **http://localhost:3000**, đăng nhập bằng một trong các tài khoản demo
-ở trang đăng nhập (có nút "Đăng nhập nhanh" cho từng tài khoản — mỗi lần dùng nút khác nhau
-sẽ là một phiên đăng nhập riêng, tiện để minh họa nhiều vai trò cùng lúc trên các trình duyệt/tab khác nhau).
-
-## 5. Trang Kịch bản Demo
-
-Đăng nhập bằng `admin1`, vào mục **"Kịch bản Demo"** ở sidebar. Trang này:
-
-- Chạy trực tiếp trên dữ liệu MongoDB thật (không giả lập)
-- Mỗi kịch bản ghi rõ mục/hình trong bài báo mà nó minh họa (tham chiếu chính xác §2, §3.1,
-  §3.2.2, §3.2.3 Fig.9-10, §4.1, §4.2, §4.4, §4.6, §4.8 — xem bảng bên dưới)
-- Kết quả hiển thị bằng **dữ liệu thật**: bảng document thật, bảng so sánh trước/sau (diff),
-  cây phân cấp document, sơ đồ node-edge của đồ thị thật — không mô tả bằng câu văn
-- Kịch bản #10 duyệt (BFS) một collection đồ thị thật (`graphnodes`/`graphedges`), tách biệt
-  hoàn toàn khỏi collection `policies` dùng ở các kịch bản khác, để minh họa đúng cơ chế
-  "nhúng luật phân quyền trực tiếp vào cạnh đồ thị" mà bài báo mô tả ở Fig. 10
-
-| # | Kịch bản | Mục bài báo |
-|---|----------|-------------|
-| 1 | Truy cập hợp lệ | §3.2.2 Access Control Rules (Document Model) |
-| 2 | Truy cập trái phép | §4.2 Security — backdoor access to other users' data |
-| 3 | Phân quyền chi tiết (FGAC) | §4.1 Fine-Grained Access Control |
-| 4 | Kiểm soát quyền sửa điểm | §3.2.2 · §4.1 áp dụng cho hành động update |
-| 5 | Kiểm tra NoSQL Injection | §4.2 Security — injection attacks ($where/$ne) |
-| 6 | Kiểm tra nhật ký | §4.6 Audit |
-| 7 | AI hỗ trợ tạo quy tắc | §4.8 Support for AI |
-| 8 | Thay đổi chính sách & tính nhất quán | §4.4 Data Consistency |
-| 9 | Minh họa mô hình dữ liệu NoSQL | §2 Overview · §3.1 Relationship Structures (Fig. 3, 5) |
-| 10 | Phân quyền trên dữ liệu dạng đồ thị | §3.2.3 Graph Model (Fig. 9, 10) |
-
-## 6. Chức năng AI hỗ trợ tạo quy tắc phân quyền (§4.8)
-
-Vào mục "AI hỗ trợ quy tắc" (chỉ Admin thấy), nhập Gemini API key vào ô riêng
-(hoặc đặt sẵn biến `GEMINI_API_KEY` trong `.env`), sau đó nhập quy định bằng tiếng Việt,
-ví dụ:
-
-> "Giảng viên khoa CNTT chỉ được sửa điểm của sinh viên trong lớp mình phụ trách.
-> Sinh viên chỉ được xem điểm của chính mình."
-
-AI sẽ phân tích và đề xuất các quy tắc phân quyền dạng cấu trúc (ABAC), Admin xem lại,
-chọn quy tắc muốn áp dụng rồi bấm xác nhận mới thực sự ghi vào hệ thống.
-
-## 7. Cấu trúc thư mục
+## Cấu trúc
 
 ```
-edu-nosql-ac/
-├── app.js                   # Điểm khởi động ứng dụng
-├── config/db.js              # Kết nối MongoDB (thật hoặc in-memory fallback)
-├── models/                   # Mongoose schemas (User, MonHoc, LopHoc, Diem, Policy...)
-├── middleware/                # auth.js (RBAC), sanitize.js (chống NoSQL Injection)
-├── utils/accessControl.js    # Bộ máy kiểm soát truy cập ABAC dạng đồ thị
-├── utils/demoScenarios.js    # Logic của 10 kịch bản demo
-├── routes/                   # Một file route cho mỗi nhóm chức năng
-├── views/                    # Giao diện EJS
-├── seed/                     # Script tạo dữ liệu mẫu
-└── public/css/style.css      # Giao diện
+server.js            Express + MongoDB, các route
+lib/ingest.js        đọc CSV/JSON/ZIP, suy luận kiểu cột (không phụ thuộc thư viện ngoài)
+lib/stats.js         histogram, đếm nhóm, tương quan, groupby, scatter
+lib/acl.js           luật ABAC theo trường dữ liệu
+lib/fetchurl.js      tải link an toàn (chống SSRF, giới hạn dung lượng)
+lib/notebook.js      xuất CSV từ MongoDB, gọi Python chạy notebook, đọc kết quả
+public/              index.html, style.css, app.js (Chart.js lấy từ node_modules)
+notebook/            notebook .ipynb, run_notebook.py, example/ (kết quả mẫu), runs/ (các lần chạy)
+sample/              dữ liệu mẫu tổng hợp
+test/                kiểm thử và giả lập
 ```
-
-## 8. Về chính sách phân quyền (Policy)
-
-Mục "Chính sách phân quyền" (chỉ Admin) cho phép xem/thêm/sửa/xóa các quy tắc ABAC.
-Mỗi chính sách là một "đường đi":
-
-```
-(vai trò chủ thể, phạm vi) --[can <action>]--> (loại tài nguyên, khoa)
-```
-
-ví dụ: `(giangvien, scope=assigned) --[can update]--> (diem)` nghĩa là
-"giảng viên chỉ được sửa điểm của các lớp mình được phân công" — đúng mô hình
-đồ thị thuộc tính Fig. 9–10 trong bài báo.
-
-## 9. Ghi chú triển khai thật
-
-- Để triển khai thật, đổi `SESSION_SECRET` trong `.env`, dùng MongoDB thật (không dùng in-memory),
-  và cân nhắc dùng HTTPS + `cookie.secure = true` cho session.
-- Tính năng "Quản lý tài liệu" ở bản demo lưu nội dung dạng văn bản thay vì upload file thật,
-  để tập trung minh họa access control thay vì xử lý file.

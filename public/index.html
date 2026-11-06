@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sổ điểm: dữ liệu học sinh trên MongoDB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#import">Sổ điểm</a>
+    <a class="toplink" href="#notebook">Sổ tay ipynb</a>
+    <div class="top-right">
+      <span id="mongoPill" class="pill" role="status">Đang kiểm tra MongoDB</span>
+      <label class="ds-pick" id="dsPick" hidden>
+        <span>Dataset</span>
+        <select id="dsSelect" aria-label="Chọn dataset"></select>
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <!-- Nhập dữ liệu -->
+    <section class="row" id="import" aria-labelledby="h-import">
+      <div class="margin"><h2 id="h-import">Nhập dữ liệu</h2></div>
+      <div class="body">
+        <h1 class="hero">Nạp bảng điểm vào MongoDB, rồi xem mỗi vai trò thấy gì.</h1>
+        <p class="lede">Tải file CSV, JSON hoặc ZIP, hoặc dán link tải trực tiếp. Mỗi dòng trở thành một document; các trường nhạy cảm chỉ hiện với vai trò được phép.</p>
+
+        <div class="tabs" role="tablist" aria-label="Cách nhập dữ liệu">
+          <button role="tab" id="tab-file" aria-selected="true" aria-controls="pane-file">Tải file lên</button>
+          <button role="tab" id="tab-url" aria-selected="false" aria-controls="pane-url" tabindex="-1">Dán link</button>
+        </div>
+
+        <form class="pane" role="tabpanel" id="pane-file" aria-labelledby="tab-file">
+          <label class="drop" id="drop" for="fileInput">
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.json,.zip">
+            <strong id="dropTitle">Kéo file vào đây hoặc bấm để chọn</strong>
+            <span id="dropHint">CSV, TSV, JSON hoặc ZIP, tối đa 50 MB</span>
+          </label>
+          <div class="field-row">
+            <label class="field">Tên dataset <input type="text" id="fileName" maxlength="80" placeholder="Để trống sẽ lấy theo tên file"></label>
+            <button class="btn" type="submit" id="fileBtn">Nhập vào MongoDB</button>
+          </div>
+        </form>
+
+        <form class="pane" role="tabpanel" id="pane-url" aria-labelledby="tab-url" hidden>
+          <label class="field wide">Link tới file dữ liệu
+            <input type="url" id="urlInput" placeholder="https://…/student.zip" required>
+          </label>
+          <div class="field-row">
+            <label class="field">Tên dataset <input type="text" id="urlName" maxlength="80" placeholder="Để trống sẽ lấy theo tên file"></label>
+            <button class="btn" type="submit" id="urlBtn">Tải và nhập</button>
+          </div>
+          <p class="preset">Chưa có dữ liệu? <button type="button" class="linklike" id="presetBtn">Dùng dataset Student Performance của UCI</button></p>
+        </form>
+
+        <p id="importMsg" class="msg" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <div id="empty" class="row" hidden>
+      <div class="margin"></div>
+      <div class="body"><p class="empty">Chưa có dataset nào. Nhập file hoặc link ở trên để bắt đầu.</p></div>
+    </div>
+
+    <div id="workspace" hidden>
+      <!-- Tổng quan -->
+      <section class="row" id="overview" aria-labelledby="h-overview">
+        <div class="margin"><h2 id="h-overview">Tổng quan</h2></div>
+        <div class="body">
+          <div class="ds-head">
+            <div>
+              <h3 id="dsTitle"></h3>
+              <dl class="facts" id="dsFacts"></dl>
+            </div>
+            <button class="btn ghost danger" id="delBtn" type="button">Xoá dataset</button>
+          </div>
+          <div class="charts" id="charts"></div>
+        </div>
+      </section>
+
+      <!-- So sánh và tương quan -->
+      <section class="row" id="explore" aria-labelledby="h-explore">
+        <div class="margin"><h2 id="h-explore">So sánh và tương quan</h2></div>
+        <div class="body">
+          <div class="explore-grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Trung bình theo nhóm</h3>
+                <div class="inline">
+                  <label>Nhóm theo <select id="gbBy"></select></label>
+                  <label>Đo <select id="gbMetric"></select></label>
+                </div>
+              </div>
+              <div class="canvas-wrap"><canvas id="cGroup" role="img" aria-label="Biểu đồ trung bình theo nhóm"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Quan hệ giữa hai cột số</h3>
+                <div class="inline">
+                  <label>Trục X <select id="scX"></select></label>
+                  <label>Trục Y <select id="scY"></select></label>
+                </div>
+              </div>
+              <div class="canvas-wrap"><canvas id="cScatter" role="img" aria-label="Biểu đồ phân tán"></canvas></div>
+              <p class="note" id="scNote"></p>
+            </div>
+          </div>
+          <div class="panel" id="corrPanel">
+            <div class="panel-head"><h3 id="corrTitle">Ma trận tương quan</h3></div>
+            <div class="scroll"><table class="corr" id="corr"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hồ sơ theo vai trò -->
+      <section class="row" id="records" aria-labelledby="h-records">
+        <div class="margin"><h2 id="h-records">Hồ sơ theo vai trò</h2></div>
+        <div class="body">
+          <p class="lede">Chọn vai trò để xem cùng một bảng bị che khác nhau. Các ô bị che không rời khỏi máy chủ.</p>
+
+          <div class="controls">
+            <fieldset class="chips" aria-label="Vai trò">
+              <legend>Vai trò</legend>
+              <label><input type="radio" name="role" value="admin" checked><span>Quản trị</span></label>
+              <label><input type="radio" name="role" value="teacher"><span>Giáo viên</span></label>
+              <label><input type="radio" name="role" value="counselor"><span>Tư vấn viên</span></label>
+            </fieldset>
+            <label class="field slim">Trường <select id="schoolSel"></select></label>
+            <label class="check" id="trainedWrap" hidden><input type="checkbox" id="trained"> Đã tập huấn bảo mật</label>
+            <label class="field slim grow">Tìm trong ô được phép xem <input type="search" id="q" placeholder="ví dụ: 15, yes, GP"></label>
+          </div>
+
+          <ul class="rules" id="rules" aria-label="Luật truy cập đang áp dụng"></ul>
+
+          <p class="sumline" id="sumline" role="status" aria-live="polite"></p>
+          <div class="legend" id="legend" aria-hidden="true"></div>
+          <div class="tablewrap" tabindex="0" aria-label="Bảng hồ sơ, cuộn ngang để xem thêm cột">
+            <table class="grid" id="grid"></table>
+          </div>
+          <div class="pager">
+            <button class="btn ghost" id="prev" type="button">Trang trước</button>
+            <span id="pageInfo"></span>
+            <button class="btn ghost" id="next" type="button">Trang sau</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Nhật ký -->
+      <section class="row" id="auditSec" aria-labelledby="h-audit">
+        <div class="margin"><h2 id="h-audit">Nhật ký truy cập</h2></div>
+        <div class="body">
+          <p class="lede">Mỗi lần xem hồ sơ đều được ghi vào MongoDB, gồm vai trò, số dòng và tỉ lệ ô bị che.</p>
+          <div class="scroll"><table class="audit" id="audit"></table></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Sổ tay phân tích: hiển thị notebook .ipynb -->
+    <section class="row" id="notebook" aria-labelledby="h-nb">
+      <div class="margin"><div class="stick"><h2 id="h-nb">Sổ tay phân tích</h2><nav class="toc" id="nbToc" aria-label="Các phần của notebook"></nav></div></div>
+      <div class="body">
+        <h3>Notebook .ipynb chạy ngay trên dữ liệu của bạn</h3>
+        <p class="lede">Máy chủ xuất dataset đang chọn từ MongoDB ra CSV, chạy notebook bằng Python rồi hiển thị toàn bộ kết quả ở dưới: bảng, biểu đồ và các demo bám theo bài báo NIST IR 8504.</p>
+        <div class="nb-actions">
+          <button class="btn" id="nbRun" type="button">Chạy notebook với dataset này</button>
+          <button class="btn ghost" id="nbToggle" type="button">Hiện toàn bộ mã</button>
+          <a class="btn ghost" id="nbDlSrc" href="/api/notebook/download?kind=source">Tải notebook gốc</a>
+          <a class="btn ghost" id="nbDlRun" href="/api/notebook/download">Tải bản đã chạy</a>
+        </div>
+        <p class="msg" id="nbMsg" role="status" aria-live="polite"></p>
+        <p class="nb-meta" id="nbMeta"></p>
+        <div class="nb" id="nbBody"><p class="empty">Đang tải notebook…</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Vai trò trên trang này chỉ để minh hoạ cách phân quyền theo trường dữ liệu, chưa có đăng nhập thật.</p>
+  </footer>
+
+  <script src="/vendor/chart.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
