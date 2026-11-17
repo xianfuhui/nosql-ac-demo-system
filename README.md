@@ -4,6 +4,7 @@ Cần Node >= 20.6. Không có GEMINI_API_KEY vẫn chạy, dùng luật heurist
 
 ## Cập nhật
 - **Nạp dữ liệu**: chọn 0–3 trước, ô nhập của cách đó mới hiện ra.
-- **Sơ đồ (Tổng quan, Hình 5–10) và Hình 1–4**: mỗi nhánh chỉ hiện vài nút, phần còn lại gộp thành nút “…” (viền vàng). Bấm vào để chọn nút cần hiển thị trong modal; nút bắt buộc (gốc, nút thuộc luật đang vẽ) luôn hiện. Hình 5 dùng bố cục cây theo cấp.
-- **Hình 1–4**: dạng NoSQL đang dùng nằm riêng một dòng, căn giữa; giá trị dài được cắt gọn, không tràn khỏi khung.
 - **Xuất phân quyền** (tab mới): tải bộ luật đã duyệt dưới dạng `acl-policy.json`, `acl-policy.csv` hoặc `acl-engine.js` (bộ luật + hàm `check`/`decide`, dùng được ngay trong hệ thống Node). API: `GET /api/export?format=json|csv|js`.
+- **Gemini API key**: ô nhập nằm ngay trên phần "Nạp dữ liệu" (tab Nạp dữ liệu). Dán key, chọn model, bấm "Lưu & kiểm tra" (server gọi thử Gemini trước khi nhận). Key chỉ lưu trong bộ nhớ máy chủ, không ghi vào `state.json`, giao diện chỉ hiện 4 ký tự cuối. Bấm "Xoá key" để quay về key trong `.env` (nếu có) hoặc luật heuristic. API: `POST /api/gemini-key {key, model}`, `DELETE /api/gemini-key`.
+
+- **Tổng quan** chỉ hiển thị dữ liệu đang nạp (nếu là mẫu thì ghi rõ mẫu nào). **4 kiểu NoSQL** (trước đây là Hình 1–4): kiểu đang dùng nằm riêng một dòng, căn giữa; nút “…” (viền vàng) gộp phần còn lại, bấm để chọn nút cần hiển thị. Đã bỏ mục Hình 5–10.

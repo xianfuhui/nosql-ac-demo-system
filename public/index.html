@@ -45,7 +45,7 @@ tr.pending td{background:#ffc40010}
 .mb{width:min(540px,94vw);max-height:84vh;overflow:auto;margin:0;box-shadow:0 0 40px #00d4ff55}
 .pk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid #0b3a66;cursor:pointer}.pk input{flex:0 0 auto;width:auto;padding:0;margin:3px 0 0}
 .tag.more{cursor:pointer;border:1px dashed var(--wa);color:var(--wa)}.tag.more:hover{background:#ffc40022}
-/* Hình 1-4: không để giá trị tràn khỏi khung, dạng đang dùng nằm riêng 1 dòng và căn giữa */
+/* 4 kiểu NoSQL: không để giá trị tràn khỏi khung, dạng đang dùng nằm riêng 1 dòng và căn giữa */
 .g4{align-items:start}
 .g4>.cur{grid-column:1/-1;order:-1;justify-self:center;width:min(100%,860px)}
 .cyl{padding:34px 14px 26px;overflow:hidden;max-width:100%}
@@ -65,9 +65,13 @@ tr.pending td{background:#ffc40010}
 
 <div id="app" class="hide">
 <nav><b>NoSQL-ACL</b>
-  <button data-t="setup">Nạp dữ liệu</button><button class="needs" data-t="over">Tổng quan</button><button class="needs" data-t="m14">Hình 1–4</button><button class="needs" data-t="f510">Hình 5–10</button><button class="needs" data-t="rules">Luật</button><button class="needs" data-t="check">Kiểm tra truy cập</button><button class="needs" data-t="sec">Đánh giá &amp; bảo mật</button><button class="needs" data-t="exp">Xuất phân quyền</button><button class="needs" data-t="audit">Nhật ký</button><button onclick="logout()">Thoát</button></nav>
+  <button data-t="setup">Nạp dữ liệu</button><button class="needs" data-t="over">Tổng quan</button><button class="needs" data-t="m14">4 kiểu NoSQL</button><button class="needs" data-t="rules">Luật</button><button class="needs" data-t="check">Kiểm tra truy cập</button><button class="needs" data-t="sec">Đánh giá &amp; bảo mật</button><button class="needs" data-t="exp">Xuất phân quyền</button><button class="needs" data-t="audit">Nhật ký</button><button onclick="logout()">Thoát</button></nav>
 <main>
-<section id="setup" class="tab"><div class="box"><h2>Nạp dữ liệu để phân quyền</h2>
+<section id="setup" class="tab"><div class="box" id="gbox"><h2>Gemini API</h2>
+  <div class="dim">Nhập API key để AI sinh luật và trả lời chat. Key chỉ lưu trong bộ nhớ máy chủ (mất khi khởi động lại), không ghi ra file.</div>
+  <div class="row" style="margin-top:10px"><input id="gkey" type="password" autocomplete="off" placeholder="Dán Gemini API key (AIza…)"><select id="gmodel"><option value="gemini-2.0-flash">gemini-2.0-flash</option><option value="gemini-2.5-flash">gemini-2.5-flash</option><option value="gemini-2.5-pro">gemini-2.5-pro</option></select><button class="g" onclick="saveKey()">Lưu &amp; kiểm tra</button><button onclick="delKey()">Xoá key</button></div>
+  <div id="gstat" class="dim" style="margin-top:8px"></div></div>
+<div class="box"><h2>Nạp dữ liệu để phân quyền</h2>
   <div class="dim">Bước 1: chọn cách nạp (0–3) · Bước 2: nhập thông tin ở ô hiện ra bên dưới.</div>
   <div class="opts">
     <button class="opt" data-s="0" onclick="pickSrc(0)"><b>0 · Dữ liệu mẫu</b><small>Test nhanh 4 mô hình NoSQL</small></button>
@@ -85,13 +89,11 @@ tr.pending td{background:#ffc40010}
   <div id="sinfo" class="wa" style="margin-top:10px"></div></div></section>
 
 <section id="over" class="tab hide"><div class="box"><h2>Hệ thống</h2><div id="sys"></div><div id="meta" class="dim"></div></div>
-  <div class="box"><div class="row"><select id="src" onchange="viz()"><option value="current">Dữ liệu của bạn</option><option value="keyvalue">Mẫu: Key-value (Fig. 1)</option><option value="wide">Mẫu: Wide-column (Fig. 2)</option><option value="document">Mẫu: Document (Fig. 3)</option><option value="graph">Mẫu: Graph (Fig. 4, 9)</option></select>
+  <div class="box"><div class="row"><div id="srcname" style="flex:2"></div>
   <div class="legend"><span><i style="background:#00d4ff"></i>cấp 1-2</span><span><i style="background:#3b82f6"></i>cấp 3</span><span><i style="background:#8b5cf6"></i>cấp 4-5</span><span class="ok">viền xanh = cho phép</span> <span class="no">viền đỏ = từ chối</span></div></div><br>
   <svg id="viz"></svg><div class="dim">Kéo các nút tròn để sắp xếp lại · nút “…” viền vàng gộp các nút còn lại: bấm vào để chọn nút cần hiển thị.</div></div></section>
 
-<section id="m14" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">4 dạng NoSQL (Hình 1–4)</h2><button class="mbtn g" onclick="setMode()"></button></div><div class="dim" style="margin-bottom:10px">Viền xanh lá là mô hình của dữ liệu bạn đang nạp (nằm riêng một dòng, căn giữa). Chỗ có “…” bấm vào để chọn phần cần hiển thị.</div><div class="g4" id="g4"></div></div></section>
-<section id="f510" class="tab hide"><div class="box"><div class="row"><button class="mbtn g" style="flex:2" onclick="setMode()"></button><select id="fig" onchange="fig()" style="flex:3"><option value="5">Hình 5. Cấu trúc phân cấp: key-value, wide-column, document</option><option value="6">Hình 6. Đồ thị có hướng của graph</option><option value="7">Hình 7. Thuộc tính chủ thể/đối tượng: key-value</option><option value="8">Hình 8. Thuộc tính chủ thể/đối tượng: wide-column và document</option><option value="9">Hình 9. Thuộc tính chủ thể/đối tượng: graph</option><option value="10">Hình 10. Graph dùng cạnh hành động để nhúng luật</option></select><select id="frule" class="hide" onchange="fig()" style="flex:3"></select></div>
-  <div id="figcap" class="dim" style="margin:8px 0"></div><svg id="fsvg"></svg><div id="figrule" class="wa" style="margin-top:8px"></div><div class="dim">Kéo các ô tròn để sắp xếp lại · nút “…” viền vàng gộp các nút còn lại: bấm vào để chọn nút cần hiển thị (nút bắt buộc luôn hiện).</div></div></section>
+<section id="m14" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">4 kiểu NoSQL</h2><button class="mbtn g" onclick="setMode()"></button></div><div class="dim" style="margin-bottom:10px">Viền xanh lá là mô hình của dữ liệu bạn đang nạp (nằm riêng một dòng, căn giữa). Chỗ có “…” bấm vào để chọn phần cần hiển thị.</div><div class="g4" id="g4"></div></div></section>
 <section id="rules" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Luật truy cập</h2><button class="g" onclick="approveAll()">Duyệt tất cả</button></div>
   <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
   <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
@@ -132,18 +134,25 @@ async function login(){try{const j=await api('/login','POST',{user:$('#u').value
 function logout(){TK='';sessionStorage.clear();$('#app').classList.add('hide');$('#login').classList.remove('hide')}
 function tab(t){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hide',x.id!==t));document.querySelectorAll('nav button[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   document.querySelectorAll('.mbtn').forEach(b=>b.textContent=mtxt());
-  ({over:()=>{info();viz()},m14,f510:fig,rules:loadRules,audit:loadAudit,sec:evalAC,exp:expLoad})[t]?.()}
+  ({over:()=>{info();viz()},m14,rules:loadRules,audit:loadAudit,sec:evalAC,exp:expLoad})[t]?.()}
 document.querySelectorAll('nav button[data-t]').forEach(b=>b.onclick=()=>tab(b.dataset.t));
-async function start(){$('#login').classList.add('hide');$('#app').classList.remove('hide');try{const s=await api('/state');$('#app').classList.toggle('has',s.has);tab(s.has?'over':'setup')}catch{logout()}}
+async function start(){$('#login').classList.add('hide');$('#app').classList.remove('hide');try{const s=await api('/state');$('#app').classList.toggle('has',s.has);tab(s.has?'over':'setup');gstat()}catch{logout()}}
 function pickSrc(i){document.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.s==i));document.querySelectorAll('.pn[data-s]').forEach(p=>p.classList.toggle('hide',p.dataset.s!=i));
   $('#shint').classList.add('hide');$('#sinfo').textContent='';const m=i==1||i==2;$('#mdl').classList.toggle('hide',!m);if(!m)$('#model').value='auto'}
+async function gstat(){try{const s=await api('/state');$('#gstat').innerHTML=s.ai?`<span class=ok>Đã bật</span> · ${esc(s.aiKey)} · ${esc(s.aiModel)}${s.aiSrc==='env'?' (từ .env)':''}`:'<span class=wa>Chưa có key, đang dùng luật heuristic.</span>';if(s.aiModel)$('#gmodel').value=s.aiModel}catch{}}
+async function saveKey(){const k=$('#gkey').value.trim();if(!k)return $('#gstat').innerHTML='<span class=wa>Dán API key trước.</span>';$('#gstat').textContent='Đang kiểm tra key…';
+  try{await api('/gemini-key','POST',{key:k,model:$('#gmodel').value});$('#gkey').value='';gstat()}catch(e){$('#gstat').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
+async function delKey(){try{await api('/gemini-key','DELETE');gstat()}catch(e){$('#gstat').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
 async function ingest(b){$('#sinfo').textContent='Đang phân tích…';try{await api('/ingest','POST',{model:$('#model').value,...b});$('#sinfo').textContent='';for(const k in PICK)delete PICK[k];$('#app').classList.add('has');tab('over')}catch(e){$('#sinfo').textContent='Lỗi: '+e.message}}
 function ingestFile(){const f=$('#file').files[0];if(!f)return $('#sinfo').textContent='Chọn một file trước.';const r=new FileReader();r.onload=()=>ingest({kind:'upload',content:r.result,filename:f.name});r.readAsText(f)}
 async function info(){const s=await api('/state');$('#sys').innerHTML=s.has?esc(s.system):'Chưa có dữ liệu.';
   $('#meta').innerHTML=s.has?`Mô hình: <b>${s.model}</b> · ${s.paths} đường dẫn · ${s.rules} luật (${s.pending} chờ duyệt) · AI Gemini: ${s.ai?'<span class=ok>bật</span>':'<span class=wa>chưa cấu hình, đang dùng luật heuristic</span>'}`:''}
 // ---- visualizer (Figs. 1-10) ----
 const COL=l=>l<=2?'#00d4ff':l===3?'#3b82f6':'#8b5cf6';
-async function viz(){const src=$('#src').value;draw(await api('/graph?src='+src),'#viz','viz:'+src)}
+const SMPN={document:'Document (users, orders)',keyvalue:'Key-value (session, cache)',wide:'Wide-column (profile, logs)',graph:'Graph (user, group, file)'};
+async function viz(){const s=await api('/state'),m=/^sample_(\w+)$/.exec(s.name||'');
+  $('#srcname').innerHTML=m?`Đang hiển thị: <b>Mẫu ${esc(SMPN[m[1]]||m[1])}</b>`:`Đang hiển thị: <b>${esc(s.name||'dữ liệu của bạn')}</b> · mô hình ${esc(s.model||'')}`;
+  draw(await api('/graph?src=current'),'#viz','viz:current')}
 // ---- gộp nút: mỗi nhánh chỉ hiện vài nút, phần còn lại là 1 nút "…" bấm vào để chọn ----
 const PICK={},RAW={},LIM=l=>l<=1?4:3,CAPV=l=>l<=1?8:6,slim=n=>({id:n.id,label:n.label,path:n.path||''});let MR={},PK=null;
 function collapse(g,key){
@@ -173,7 +182,7 @@ const pkDef=()=>{PK.sel=new Set(PK.p.def);pkRender()},pkNone=()=>{PK.sel=new Set
   pkOk=()=>{const{p,sel,done}=PK;(PICK[p.key]??={})[p.pid]=[...sel];closePick();done()};
 window.pkMore=id=>pick(MR[id],()=>m14());
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&PK)closePick()});
-// bố cục cây gọn theo từng cấp (dùng cho Hình 5)
+// bố cục cây gọn theo từng cấp
 function layout(ns,ls,W){const by={},ch={},hp={};ns.forEach(n=>by[n.id]=n);ls.forEach(l=>{if(l.x)return;(ch[l.source]??=[]).push(l.target);hp[l.target]=1});
   const T=n=>({n,c:(ch[n.id]||[]).map(k=>T(by[k]))}),rs=ns.filter(n=>!hp[n.id]),root=d3.hierarchy(rs.length===1?T(rs[0]):{n:null,c:rs.map(T)},d=>d.c),Wv=Math.max(W,root.leaves().length*58+60);
   d3.tree().size([Wv-60,1]).separation(()=>1)(root);root.each(d=>{if(d.data.n){d.data.n.x=d.x+30;d.data.n.y=40+(d.data.n.level-1)*100}});return Wv}
@@ -212,16 +221,16 @@ async function evalAC(){const r=await api('/evaluate');$('#score').textContent=r
   $('#checks').innerHTML=r.checks.map(c=>`<div class="m"><span class="${c.ok?'ok':'no'}">${c.ok?'[ĐẠT]':'[CHƯA]'}</span> ${esc(c.name)} <span class="tag">§${c.ref}</span> <span class="dim">${esc(c.detail)}</span></div>`).join('')}
 async function inj(){const r=await api('/injection-test');$('#injr').innerHTML=r.map(x=>`<div class="m"><span class="${x.blocked?'ok':'no'}">${x.blocked?'[CHẶN]':'[LỌT]'}</span> <code>${esc(x.payload)}</code></div>`).join('')}
 async function loadAudit(){const a=await api('/audit');$('#atb').innerHTML=a.map(x=>`<tr><td class=dim>${x.t.slice(11,19)}</td><td class="${/fail|block/.test(x.ev)?'no':''}">${esc(x.ev)}</td><td class=dim>${esc(x.d)}</td></tr>`).join('')}
-// ---- Hình 1–4: bốn dạng NoSQL ----
+// ---- 4 kiểu NoSQL ----
 async function m14(){const s=await api('/state'),T=(h,r)=>`<table><tr><th>${h[0]}</th><th>${h[1]}</th></tr>${r}</table>`,
   kv=T(['Key','Value'],'<tr><td>Key 1</td><td>Value 1</td></tr><tr><td>…</td><td>…</td></tr><tr><td>Key n</td><td>Value n</td></tr>'),
   cf=n=>`<div class="cb"><div class="dim">Column family ${n}</div><div class="cb s"><div class="dim">Row 1</div>${T(['Column 1','Column n'],'<tr><td>Value 1</td><td>Value 1</td></tr><tr><td>Value n</td><td>Value n</td></tr>')}<div class="dim">⋮ Row n</div></div></div>`,
   dc=n=>`<div class="cb"><div class="dim">Collection ${n}</div><div class="cb s"><pre>Document 1\n{ Field 1 … Field n }</pre><pre>Document n\n{ Field 1 … Field n }</pre></div></div>`,
   nd=n=>`<div class="cb s"><b>Node ${n}</b><pre>data\nEdge</pre></div>`,
-  C=[['keyvalue','Hình 1. Key-value database model','Key-value database',`<div class="cy"><div class="cb"><div class="dim">Table 1</div>${kv}</div><div class="cb"><div class="dim">Table n</div>${kv}</div></div>`],
-     ['wide','Hình 2. Wide-column database model','Wide Column database',`<div class="cy">${cf(1)}${cf('n')}</div>`],
-     ['document','Hình 3. Document database model','Document database',`<div class="cy">${dc(1)}${dc('n')}</div>`],
-     ['graph','Hình 4. Graph database model','Graph database',`<div class="cy">${nd(1)}<span>……</span>${nd('n')}</div>`]];
+  C=[['keyvalue','Key-value database model','Key-value database',`<div class="cy"><div class="cb"><div class="dim">Table 1</div>${kv}</div><div class="cb"><div class="dim">Table n</div>${kv}</div></div>`],
+     ['wide','Wide-column database model','Wide Column database',`<div class="cy">${cf(1)}${cf('n')}</div>`],
+     ['document','Document database model','Document database',`<div class="cy">${dc(1)}${dc('n')}</div>`],
+     ['graph','Graph database model','Graph database',`<div class="cy">${nd(1)}<span>……</span>${nd('n')}</div>`]];
   const real=MODE==='data'?await api('/graph?src=current'):null;MR={};
   const rb=g0=>{const g=collapse(g0,'m14'),ch={},id={};g.nodes.forEach(n=>{id[n.id]=n;if(n.more)MR[n.id]=n});g.links.forEach(l=>(ch[l.source]??=[]).push({n:id[l.target],label:l.label}));
     const kd=n=>(ch[n.id]||[]).map(x=>x.n),vl=n=>kd(n).find(k=>!k.more)?.label||'',L2=g.nodes.filter(n=>n.level===2),
@@ -231,50 +240,10 @@ async function m14(){const s=await api('/state'),T=(h,r)=>`<table><tr><th>${h[0]
     if(g.model==='document')return`<div class="cy">${L2.map(t=>box(t,t=>`<div class="cb"><div class="dim">Collection ${esc(t.label)}</div>${kd(t).map(d=>box(d,d=>`<div class="cb s"><b>${esc(d.label)}</b> {${kd(d).map(f=>f.more?`<div class="fl">${mo(f)}</div>`:`<div class="fl">${ell(f.label)}: ${ell(vl(f))}</div>`).join('')}}</div>`)).join('')}</div>`)).join('')}</div>`;
     return`<div class="cy">${g.nodes.map(n=>box(n,n=>`<div class="cb s"><b>${esc(n.label)}</b><div class="fl dim">${(ch[n.id]||[]).slice(0,4).map(x=>'→ '+esc(x.n.label)+(x.label?' ('+esc(x.label)+')':'')).join('<br>')||'(không có cạnh ra)'}</div></div>`)).join('')}</div>`};
   $('#g4').innerHTML=C.map(([k,cap,t,b])=>{const mine=real&&s.model===k;return`<div class="${s.model===k?'cur':''}" style="${real&&!mine?'opacity:.4':''}"><div class="cyl"><b>${t}</b>${mine?rb(real):b}</div><div style="text-align:center;margin-top:6px" class="dim">${cap}${mine?' · dữ liệu của bạn':''}</div></div>`}).join('')}
-// ---- Hình 5–10: cấu trúc quan hệ và thuộc tính chủ thể/đối tượng (kéo thả được) ----
+// ---- chế độ xem (mẫu bài báo / dữ liệu của tôi) ----
 const ROLE={sub:'#00d4ff',obj:'#ffc400',act:'#00ff9c',no:'#ff3b5c'};
 let MODE='paper';const mtxt=()=>MODE==='paper'?'Đang xem: mẫu bài báo · bấm để xem theo dữ liệu của tôi':'Đang xem: dữ liệu của tôi · bấm để xem mẫu bài báo';
-function setMode(){MODE=MODE==='paper'?'data':'paper';document.querySelectorAll('.mbtn').forEach(b=>b.textContent=mtxt());$('#m14').classList.contains('hide')?fig():m14()}
-const mk=(ns,es,o={})=>({nodes:ns.map(([id,label,level,role])=>({id,label,level,role})),links:es.map(([source,target,label])=>({source,target,label:label||''})),...o});
-const LEG=' Cyan: chủ thể và thuộc tính chủ thể · Vàng: đối tượng và thuộc tính đối tượng · Xanh lá: hành động.';
-const FIGS={
-5:()=>{const ns=[['r','1',1]],es=[];let c=0;const rec=(p,l)=>{if(l>5)return;for(let k=0;k<2;k++){const id='n'+c++;ns.push([id,String(l),l]);es.push([p,id]);rec(id,l+1)}};rec('r',2);
-  return{cap:'Cây tối đa 5 cấp của key-value, wide-column, document (cấp 1 là database).',g:mk(ns,es,{model:'tree',small:1,tidy:1,arrows:1,levels:['Cấp 1 · database','Cấp 2 · Tables / Column families / Collections','Cấp 3 · Keys / Rows / Documents','Cấp 4 · values / Column ID / Fields','Cấp 5 · Null / values / values']})}},
-6:()=>({cap:'Graph model là đồ thị có hướng: mỗi nút có thể có nhiều cạnh và có thể tạo vòng.',g:mk([1,2,3,4,5,6,7,8].map(i=>['v'+i,String(i),2]),[[1,2],[1,3],[2,4],[3,4],[4,1],[2,5],[5,6],[6,2],[3,7],[7,8],[8,3],[5,8]].map(([a,b])=>['v'+a,'v'+b]),{model:'graph'})}),
-7:()=>({cap:'Key-value: thuộc tính đi qua liên kết từ cấp 2 đến cấp 3.'+LEG,rule:'Luật: user x thuộc group y của department z có thể đọc file f do branch g của company h quản lý.',
-  g:mk([['db','Key-value database',1],['dep','department z',2,'sub'],['com','company h',2,'obj'],['o1','…',3],['grp','group y',3,'sub'],['o2','…',3],['br','branch g',3,'obj'],['usr','user x',4,'sub'],['fil','file f',4,'obj']],
-  [['db','dep'],['db','com'],['dep','grp'],['dep','o1'],['com','o2'],['com','br'],['grp','usr'],['br','fil']],{model:'tree',inner:1,arrows:1})}),
-8:()=>({cap:'Wide-column và document: thuộc tính đi qua liên kết từ cấp 2 đến cấp 4; một nút đơn lẻ cũng đủ tạo luật (cấp dưới thừa hưởng quyền).'+LEG,rule:'Luật: user w trong group x của department y thuộc organization z có thể đọc file f do branch g của division h thuộc company i quản lý.',
-  g:mk([['db','Wide-column / Document database',1],['org','organization z',2,'sub'],['cmp','Company i',2,'obj'],['dep','department y',3,'sub'],['div','division h',3,'obj'],['grp','group x',4,'sub'],['br','branch g',4,'obj'],['usr','user w',5,'sub'],['fil','file f',5,'obj']],
-  [['db','org'],['db','cmp'],['org','dep'],['cmp','div'],['dep','grp'],['div','br'],['grp','usr'],['br','fil']],{model:'tree',inner:1,arrows:1})}),
-9:()=>({cap:'Graph: thuộc tính là chuỗi cạnh và nút, không cần quan hệ phân cấp.'+LEG,rule:'Luật: user x trong group y làm việc cho company z có thể đọc file f do department d quản lý thuộc organization o.',
-  g:mk([['x','user x',2,'sub'],['y','group y',2,'sub'],['z','company z',2,'sub'],['f','file f',2,'obj'],['d','department d',2,'obj'],['o','organization o',2,'obj']],
-  [['x','y','in'],['y','z','works for'],['f','d','managed by'],['d','o','belongs to']],{model:'graph',inner:1})}),
-10:()=>({cap:'Graph: cạnh dùng làm hành động được phép, nên luật nằm ngay trong database mà không cần lưu ngoài.'+LEG,rule:'Luật nhúng: user x —in→ group y —can read→ file f —belongs to→ organization o.',
-  g:mk([['x','user x',2,'sub'],['y','group y',2,'sub'],['a','can read',2,'act'],['f','file f',2,'obj'],['o','organization o',2,'obj']],
-  [['x','y','in'],['y','a'],['a','f'],['f','o','belongs to']],{model:'graph',inner:1})})};
-const gl=(p,x)=>p==='*'||new RegExp('^'+p.split('*').map(a=>a.replace(/[.+?^${}()|[\]\\]/g,'\\$&')).join('[^/]*')+'(/.*)?$').test(x);
-async function figData(n){
-  const g=await api('/graph?src=current'),tree=g.model!=='graph',nodes=g.nodes,links=g.links.map(l=>({...l}));
-  const LV={keyvalue:['Cấp 1 · Key-value database','Cấp 2 · Tables','Cấp 3 · Keys','Cấp 4 · values'],wide:['Cấp 1 · Wide-column database','Cấp 2 · Column families','Cấp 3 · Rows','Cấp 4 · Column ID','Cấp 5 · values'],document:['Cấp 1 · Document database','Cấp 2 · Collections','Cấp 3 · Documents','Cấp 4 · Fields','Cấp 5 · values']};
-  if(n===5)return tree?{cap:`Cây phân cấp thực tế của dữ liệu bạn nạp (${g.model}).`,g:{model:'tree',arrows:1,tidy:1,nodes,links,levels:LV[g.model]}}:{cap:'Dữ liệu của bạn là graph nên không có cây phân cấp; hiển thị đồ thị có hướng.',g};
-  if(n===6)return{cap:'Dữ liệu của bạn dưới dạng đồ thị có hướng.'+(tree?' Cạnh đi từ nút cha đến nút con.':''),g:{model:tree?'tree':'graph',free:tree,arrows:1,nodes,links}};
-  const R=await api('/rules'),sel=$('#frule'),keep=sel.value;
-  sel.innerHTML=R.map(r=>`<option value="${r.id}">${esc(r.permission)} · ${esc(r.object)} · ${esc(r.subject.join(',')||'mọi chủ thể')}</option>`).join('');
-  if(R.some(r=>r.id===keep))sel.value=keep;
-  const r=R.find(x=>x.id===sel.value)||R[0];if(!r)return{cap:'Chưa có luật để vẽ. Hãy thêm hoặc đề xuất luật trước.',g:{model:'tree',free:1,arrows:1,nodes,links}};
-  const by={},par={};nodes.forEach(x=>by[x.id]=x);links.forEach(l=>par[l.target]=l.source);
-  const hit=nodes.filter(x=>x.path&&gl(r.object,x.path)).slice(0,8);
-  hit.forEach(x=>{x.role='obj';if(tree)for(let p=par[x.id];p;p=par[p])by[p].role='obj'});
-  const S=(r.subject.length?r.subject:['mọi chủ thể']).map((l,i)=>({id:'S'+i,label:l,level:2,role:'sub'})),lab=r.permission+' '+r.actions.join(','),ex=[...S],lk=[];
-  if(n===10){ex.push({id:'A',label:lab,level:2,role:r.permission==='grant'?'act':'no'});S.forEach(x=>lk.push({source:x.id,target:'A',label:'',x:1}));hit.forEach(h=>lk.push({source:'A',target:h.id,label:'',x:1}))}
-  else S.forEach(x=>hit.forEach(h=>lk.push({source:x.id,target:h.id,label:lab,x:1})));
-  const want={7:['keyvalue'],8:['wide','document'],9:['graph'],10:['graph']}[n],note=want.includes(g.model)?'':` Lưu ý: hình này vốn minh hoạ mô hình ${want.join('/')}, dữ liệu của bạn là ${g.model}.`;
-  return{cap:`Luật ${r.id} áp lên dữ liệu thật: chủ thể (cyan), đối tượng khớp "${r.object}" (vàng), `+(n===10?'hành động là một nút (xanh lá, hoặc đỏ nếu deny).':'hành động ghi trên cạnh.')+note,
-    rule:`Luật: [${r.subject.join(', ')||'mọi chủ thể'}] ${r.permission} ${r.actions.join(',')} trên ${r.object}${r.condition?' nếu '+r.condition:''}. ${hit.length} nút khớp.`,
-    g:{model:tree?'tree':'graph',free:tree,arrows:1,nodes:[...nodes,...ex],links:[...links,...lk]}}}
-async function fig(){const n=$('#fig').value,data=MODE==='data';$('#frule').classList.toggle('hide',!(data&&+n>=7));
-  const F=data?await figData(+n):FIGS[n]();$('#figcap').textContent=F.cap;$('#figrule').textContent=F.rule||'';draw(F.g,'#fsvg','fig'+n+MODE+(data&&+n>=7?':'+$('#frule').value:''))}
+function setMode(){MODE=MODE==='paper'?'data':'paper';document.querySelectorAll('.mbtn').forEach(b=>b.textContent=mtxt());m14()}
 // ---- xuất phân quyền ----
 const USE=`// 1) Tải acl-engine.js, đặt vào dự án của hệ thống chính
 const acl = require('./acl-engine');
