@@ -1,189 +1,301 @@
 <!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sổ điểm: dữ liệu học sinh trên MongoDB</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-  <header class="top">
-    <a class="brand" href="#import">Sổ điểm</a>
-    <a class="toplink" href="#notebook">Sổ tay ipynb</a>
-    <div class="top-right">
-      <span id="mongoPill" class="pill" role="status">Đang kiểm tra MongoDB</span>
-      <label class="ds-pick" id="dsPick" hidden>
-        <span>Dataset</span>
-        <select id="dsSelect" aria-label="Chọn dataset"></select>
-      </label>
-    </div>
-  </header>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NoSQL-ACL // blue team console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{--bg:#020a17;--p:#061a33;--ln:#0b4a82;--c:#00d4ff;--t:#b9e6ff;--dim:#5c8db3;--ok:#00ff9c;--no:#ff3b5c;--wa:#ffc400}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#06356a55,transparent),var(--bg);color:var(--t);font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;min-height:100vh}
+body:before{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,#00d4ff08 0 1px,transparent 1px 3px);pointer-events:none}
+h1,h2,h3{margin:0 0 10px;font-weight:600;color:var(--c);text-shadow:0 0 12px #00d4ff66}
+.hide{display:none!important}.dim{color:var(--dim)}.ok{color:var(--ok)}.no{color:var(--no)}.wa{color:var(--wa)}
+input,select,textarea,button{font:inherit;color:var(--t);background:#03122580;border:1px solid var(--ln);padding:8px 10px;border-radius:3px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--c);outline-offset:1px}
+button{cursor:pointer;background:#07305a;border-color:var(--c)}button:hover{background:#0a4a88;box-shadow:0 0 10px #00d4ff55}
+button.g{border-color:var(--ok);color:var(--ok)}button.r{border-color:var(--no);color:var(--no)}
+.box{background:var(--p);border:1px solid var(--ln);border-radius:4px;padding:16px;margin-bottom:14px}
+#login{display:grid;place-items:center;min-height:100vh}#login .box{width:min(380px,92vw);box-shadow:0 0 40px #00d4ff33}
+#login input,.row input{width:100%;margin:6px 0}
+nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--ln);background:#020d1dcc;position:sticky;top:0;z-index:5;align-items:center}
+nav b{color:var(--c);margin-right:auto}nav button.on{background:var(--c);color:#001;font-weight:700}
+main{padding:16px;max-width:1280px;margin:auto}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 160px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{border-bottom:1px solid #0b3a66;padding:6px;text-align:left;vertical-align:top}th{color:var(--c)}
+tr.pending td{background:#ffc40010}
+#viz,#fsvg{width:100%;height:520px;background:#010812;border:1px solid var(--ln);border-radius:4px}
+.tag{border:1px solid var(--ln);padding:1px 6px;border-radius:3px;font-size:12px}
+#chatlog{height:340px;overflow:auto;border:1px solid var(--ln);padding:10px;margin-bottom:8px;background:#010812}
+.m{margin:6px 0;white-space:pre-wrap}.m.u{color:var(--c)}.bar{height:10px;background:#03122a;border:1px solid var(--ln)}.bar i{display:block;height:100%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.legend span{margin-right:14px}.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.needs{display:none}#app.has .needs{display:revert}
+#fab{position:fixed;right:18px;bottom:18px;width:54px;height:54px;border-radius:50%;z-index:20;font-weight:700;box-shadow:0 0 18px #00d4ff88}
+#bot{position:fixed;right:18px;bottom:84px;width:min(380px,92vw);z-index:20;box-shadow:0 0 30px #00d4ff44;margin:0}#bot #chatlog{height:300px}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px}
+.cyl{border:2px solid var(--c);border-radius:50%/22px;padding:34px 12px 12px;text-align:center;position:relative;background:#010812}.cyl>b{position:absolute;top:6px;left:0;right:0;font-weight:400;color:var(--dim)}
+.cur .cyl{border-color:var(--ok);box-shadow:0 0 18px #00ff9c66}
+.cy{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.cy table{width:auto}.cy td,.cy th{border:1px solid var(--ln);padding:2px 8px}.cy th{background:#0a3a6b}
+.cb{border:1px solid var(--ln);padding:6px;margin:4px;display:inline-block;text-align:left;font-size:12px}.cb.s{border-color:var(--c)}.cb pre{margin:3px 0}
 
-  <main>
-    <!-- Nhập dữ liệu -->
-    <section class="row" id="import" aria-labelledby="h-import">
-      <div class="margin"><h2 id="h-import">Nhập dữ liệu</h2></div>
-      <div class="body">
-        <h1 class="hero">Nạp bảng điểm vào MongoDB, rồi xem mỗi vai trò thấy gì.</h1>
-        <p class="lede">Tải file CSV, JSON hoặc ZIP, hoặc dán link tải trực tiếp. Mỗi dòng trở thành một document; các trường nhạy cảm chỉ hiện với vai trò được phép.</p>
+/* chọn nguồn nạp */
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:12px 0}
+.opt{text-align:left;padding:12px;line-height:1.35}.opt b{display:block;color:var(--c);font-size:15px}.opt small{color:var(--dim)}
+.opt.on{background:var(--c);border-color:var(--c)}.opt.on b,.opt.on small{color:#001}
+.pn{margin-top:12px;padding-top:14px;border-top:1px dashed var(--ln)}
+/* modal chọn nút */
+#modal{position:fixed;inset:0;background:#000b;z-index:50;display:grid;place-items:center}
+.mb{width:min(540px,94vw);max-height:84vh;overflow:auto;margin:0;box-shadow:0 0 40px #00d4ff55}
+.pk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid #0b3a66;cursor:pointer}.pk input{flex:0 0 auto;width:auto;padding:0;margin:3px 0 0}
+.tag.more{cursor:pointer;border:1px dashed var(--wa);color:var(--wa)}.tag.more:hover{background:#ffc40022}
+/* Hình 1-4: không để giá trị tràn khỏi khung, dạng đang dùng nằm riêng 1 dòng và căn giữa */
+.g4{align-items:start}
+.g4>.cur{grid-column:1/-1;order:-1;justify-self:center;width:min(100%,860px)}
+.cyl{padding:34px 14px 26px;overflow:hidden;max-width:100%}
+.cb{max-width:100%;vertical-align:top}.cb pre{white-space:pre-wrap;word-break:break-word}
+.ell{display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.fl{padding-left:12px;word-break:break-word}
+/* tab xuất */
+.code{max-height:420px;overflow:auto;background:#010812;border:1px solid var(--ln);padding:10px;margin:10px 0;white-space:pre;font-size:12.5px}
+</style></head><body>
 
-        <div class="tabs" role="tablist" aria-label="Cách nhập dữ liệu">
-          <button role="tab" id="tab-file" aria-selected="true" aria-controls="pane-file">Tải file lên</button>
-          <button role="tab" id="tab-url" aria-selected="false" aria-controls="pane-url" tabindex="-1">Dán link</button>
-        </div>
+<section id="login"><div class="box">
+  <h1>NoSQL-ACL</h1><div class="dim">Access control console · NIST IR 8504</div><br>
+  <label>Tài khoản<input id="u" autocomplete="username"></label>
+  <label>Mật khẩu<input id="p" type="password" autocomplete="current-password"></label>
+  <button style="width:100%;margin-top:10px" onclick="login()">Đăng nhập</button><div id="lerr" class="no"></div>
+</div></section>
 
-        <form class="pane" role="tabpanel" id="pane-file" aria-labelledby="tab-file">
-          <label class="drop" id="drop" for="fileInput">
-            <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.json,.zip">
-            <strong id="dropTitle">Kéo file vào đây hoặc bấm để chọn</strong>
-            <span id="dropHint">CSV, TSV, JSON hoặc ZIP, tối đa 50 MB</span>
-          </label>
-          <div class="field-row">
-            <label class="field">Tên dataset <input type="text" id="fileName" maxlength="80" placeholder="Để trống sẽ lấy theo tên file"></label>
-            <button class="btn" type="submit" id="fileBtn">Nhập vào MongoDB</button>
-          </div>
-        </form>
+<div id="app" class="hide">
+<nav><b>NoSQL-ACL</b>
+  <button data-t="setup">Nạp dữ liệu</button><button class="needs" data-t="over">Tổng quan</button><button class="needs" data-t="m14">Hình 1–4</button><button class="needs" data-t="f510">Hình 5–10</button><button class="needs" data-t="rules">Luật</button><button class="needs" data-t="check">Kiểm tra truy cập</button><button class="needs" data-t="sec">Đánh giá &amp; bảo mật</button><button class="needs" data-t="exp">Xuất phân quyền</button><button class="needs" data-t="audit">Nhật ký</button><button onclick="logout()">Thoát</button></nav>
+<main>
+<section id="setup" class="tab"><div class="box"><h2>Nạp dữ liệu để phân quyền</h2>
+  <div class="dim">Bước 1: chọn cách nạp (0–3) · Bước 2: nhập thông tin ở ô hiện ra bên dưới.</div>
+  <div class="opts">
+    <button class="opt" data-s="0" onclick="pickSrc(0)"><b>0 · Dữ liệu mẫu</b><small>Test nhanh 4 mô hình NoSQL</small></button>
+    <button class="opt" data-s="1" onclick="pickSrc(1)"><b>1 · Tải file</b><small>JSON / CSV từ máy bạn</small></button>
+    <button class="opt" data-s="2" onclick="pickSrc(2)"><b>2 · Link dữ liệu</b><small>URL công khai trả về JSON / CSV</small></button>
+    <button class="opt" data-s="3" onclick="pickSrc(3)"><b>3 · Quét database</b><small>MongoDB hoặc Redis có sẵn</small></button>
+  </div>
+  <div id="shint" class="dim">Chọn một cách nạp ở trên để hiện ô nhập.</div>
+  <div class="pn hide" data-s="0"><h3>0. Dùng dữ liệu mẫu để test</h3><div class="row"><select id="smp"><option value="document">Document (users, orders)</option><option value="keyvalue">Key-value (session, cache)</option><option value="wide">Wide-column (profile, logs)</option><option value="graph">Graph (user, group, file)</option></select><button class="g" onclick="ingest({kind:'sample',model:$('#smp').value})">Nạp dữ liệu mẫu</button></div></div>
+  <div class="pn hide" data-s="1"><h3>1. Tải file (JSON / CSV)</h3><div class="row"><input type="file" id="file" accept=".json,.csv,.txt"><button onclick="ingestFile()">Tải lên và phân tích</button></div></div>
+  <div class="pn hide" data-s="2"><h3>2. Link dữ liệu (URL công khai)</h3><div class="row"><input id="url" placeholder="https://example.com/data.json"><button onclick="ingest({kind:'url',url:$('#url').value})">Lấy và phân tích</button></div></div>
+  <div class="pn hide" data-s="3"><h3>3. Quét database có sẵn</h3><div class="row"><input id="muri" placeholder="mongodb://user:pass@host:27017/dbname"><button onclick="ingest({kind:'mongo',uri:$('#muri').value})">Quét MongoDB</button></div>
+    <div class="row"><input id="ruri" placeholder="redis://host:6379"><button onclick="ingest({kind:'redis',uri:$('#ruri').value})">Quét Redis</button></div></div>
+  <div id="mdl" class="hide" style="margin-top:12px"><label class="dim">Mô hình dữ liệu </label><select id="model"><option value="auto">Tự nhận diện mô hình</option><option value="keyvalue">Key-value</option><option value="wide">Wide-column</option><option value="document">Document</option><option value="graph">Graph</option></select></div>
+  <div id="sinfo" class="wa" style="margin-top:10px"></div></div></section>
 
-        <form class="pane" role="tabpanel" id="pane-url" aria-labelledby="tab-url" hidden>
-          <label class="field wide">Link tới file dữ liệu
-            <input type="url" id="urlInput" placeholder="https://…/student.zip" required>
-          </label>
-          <div class="field-row">
-            <label class="field">Tên dataset <input type="text" id="urlName" maxlength="80" placeholder="Để trống sẽ lấy theo tên file"></label>
-            <button class="btn" type="submit" id="urlBtn">Tải và nhập</button>
-          </div>
-          <p class="preset">Chưa có dữ liệu? <button type="button" class="linklike" id="presetBtn">Dùng dataset Student Performance của UCI</button></p>
-        </form>
+<section id="over" class="tab hide"><div class="box"><h2>Hệ thống</h2><div id="sys"></div><div id="meta" class="dim"></div></div>
+  <div class="box"><div class="row"><select id="src" onchange="viz()"><option value="current">Dữ liệu của bạn</option><option value="keyvalue">Mẫu: Key-value (Fig. 1)</option><option value="wide">Mẫu: Wide-column (Fig. 2)</option><option value="document">Mẫu: Document (Fig. 3)</option><option value="graph">Mẫu: Graph (Fig. 4, 9)</option></select>
+  <div class="legend"><span><i style="background:#00d4ff"></i>cấp 1-2</span><span><i style="background:#3b82f6"></i>cấp 3</span><span><i style="background:#8b5cf6"></i>cấp 4-5</span><span class="ok">viền xanh = cho phép</span> <span class="no">viền đỏ = từ chối</span></div></div><br>
+  <svg id="viz"></svg><div class="dim">Kéo các nút tròn để sắp xếp lại · nút “…” viền vàng gộp các nút còn lại: bấm vào để chọn nút cần hiển thị.</div></div></section>
 
-        <p id="importMsg" class="msg" role="status" aria-live="polite"></p>
-      </div>
-    </section>
+<section id="m14" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">4 dạng NoSQL (Hình 1–4)</h2><button class="mbtn g" onclick="setMode()"></button></div><div class="dim" style="margin-bottom:10px">Viền xanh lá là mô hình của dữ liệu bạn đang nạp (nằm riêng một dòng, căn giữa). Chỗ có “…” bấm vào để chọn phần cần hiển thị.</div><div class="g4" id="g4"></div></div></section>
+<section id="f510" class="tab hide"><div class="box"><div class="row"><button class="mbtn g" style="flex:2" onclick="setMode()"></button><select id="fig" onchange="fig()" style="flex:3"><option value="5">Hình 5. Cấu trúc phân cấp: key-value, wide-column, document</option><option value="6">Hình 6. Đồ thị có hướng của graph</option><option value="7">Hình 7. Thuộc tính chủ thể/đối tượng: key-value</option><option value="8">Hình 8. Thuộc tính chủ thể/đối tượng: wide-column và document</option><option value="9">Hình 9. Thuộc tính chủ thể/đối tượng: graph</option><option value="10">Hình 10. Graph dùng cạnh hành động để nhúng luật</option></select><select id="frule" class="hide" onchange="fig()" style="flex:3"></select></div>
+  <div id="figcap" class="dim" style="margin:8px 0"></div><svg id="fsvg"></svg><div id="figrule" class="wa" style="margin-top:8px"></div><div class="dim">Kéo các ô tròn để sắp xếp lại · nút “…” viền vàng gộp các nút còn lại: bấm vào để chọn nút cần hiển thị (nút bắt buộc luôn hiện).</div></div></section>
+<section id="rules" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Luật truy cập</h2><button class="g" onclick="approveAll()">Duyệt tất cả</button></div>
+  <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
+  <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
+  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div></section>
 
-    <div id="empty" class="row" hidden>
-      <div class="margin"></div>
-      <div class="body"><p class="empty">Chưa có dataset nào. Nhập file hoặc link ở trên để bắt đầu.</p></div>
-    </div>
 
-    <div id="workspace" hidden>
-      <!-- Tổng quan -->
-      <section class="row" id="overview" aria-labelledby="h-overview">
-        <div class="margin"><h2 id="h-overview">Tổng quan</h2></div>
-        <div class="body">
-          <div class="ds-head">
-            <div>
-              <h3 id="dsTitle"></h3>
-              <dl class="facts" id="dsFacts"></dl>
-            </div>
-            <button class="btn ghost danger" id="delBtn" type="button">Xoá dataset</button>
-          </div>
-          <div class="charts" id="charts"></div>
-        </div>
-      </section>
 
-      <!-- So sánh và tương quan -->
-      <section class="row" id="explore" aria-labelledby="h-explore">
-        <div class="margin"><h2 id="h-explore">So sánh và tương quan</h2></div>
-        <div class="body">
-          <div class="explore-grid">
-            <div class="panel">
-              <div class="panel-head">
-                <h3>Trung bình theo nhóm</h3>
-                <div class="inline">
-                  <label>Nhóm theo <select id="gbBy"></select></label>
-                  <label>Đo <select id="gbMetric"></select></label>
-                </div>
-              </div>
-              <div class="canvas-wrap"><canvas id="cGroup" role="img" aria-label="Biểu đồ trung bình theo nhóm"></canvas></div>
-            </div>
-            <div class="panel">
-              <div class="panel-head">
-                <h3>Quan hệ giữa hai cột số</h3>
-                <div class="inline">
-                  <label>Trục X <select id="scX"></select></label>
-                  <label>Trục Y <select id="scY"></select></label>
-                </div>
-              </div>
-              <div class="canvas-wrap"><canvas id="cScatter" role="img" aria-label="Biểu đồ phân tán"></canvas></div>
-              <p class="note" id="scNote"></p>
-            </div>
-          </div>
-          <div class="panel" id="corrPanel">
-            <div class="panel-head"><h3 id="corrTitle">Ma trận tương quan</h3></div>
-            <div class="scroll"><table class="corr" id="corr"></table></div>
-          </div>
-        </div>
-      </section>
+<section id="check" class="tab hide"><div class="box"><h2>Kiểm tra quyền truy cập</h2>
+  <div class="row"><input id="cs" placeholder="Chủ thể: role=user"><input id="co" placeholder="Đối tượng: users/*/salary"><select id="ca"><option>read</option><option>write</option><option>delete</option></select><input id="cx" placeholder='Môi trường JSON: {"class":5}'><button onclick="check()">Kiểm tra</button></div>
+  <h2 id="cres" style="margin-top:14px"></h2><div id="cby" class="dim"></div></div></section>
 
-      <!-- Hồ sơ theo vai trò -->
-      <section class="row" id="records" aria-labelledby="h-records">
-        <div class="margin"><h2 id="h-records">Hồ sơ theo vai trò</h2></div>
-        <div class="body">
-          <p class="lede">Chọn vai trò để xem cùng một bảng bị che khác nhau. Các ô bị che không rời khỏi máy chủ.</p>
+<section id="sec" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Đánh giá theo NIST IR 8504</h2><button onclick="evalAC()">Chạy đánh giá</button></div><h2 id="score"></h2><div class="bar"><i id="sb" style="width:0"></i></div><br><div id="checks"></div></div>
+  <div class="box"><div class="row"><h2 style="flex:3">Chống NoSQL injection</h2><button onclick="inj()">Chạy thử payload tấn công</button></div><div id="injr"></div></div></section>
 
-          <div class="controls">
-            <fieldset class="chips" aria-label="Vai trò">
-              <legend>Vai trò</legend>
-              <label><input type="radio" name="role" value="admin" checked><span>Quản trị</span></label>
-              <label><input type="radio" name="role" value="teacher"><span>Giáo viên</span></label>
-              <label><input type="radio" name="role" value="counselor"><span>Tư vấn viên</span></label>
-            </fieldset>
-            <label class="field slim">Trường <select id="schoolSel"></select></label>
-            <label class="check" id="trainedWrap" hidden><input type="checkbox" id="trained"> Đã tập huấn bảo mật</label>
-            <label class="field slim grow">Tìm trong ô được phép xem <input type="search" id="q" placeholder="ví dụ: 15, yes, GP"></label>
-          </div>
+<section id="exp" class="tab hide"><div class="box"><h2>Xuất tập phân quyền</h2>
+  <div class="dim">Xuất các luật <b>đã duyệt</b> để hệ thống chính nạp vào và kiểm tra quyền (mặc định từ chối, deny thắng grant).</div><div id="expinfo" style="margin:10px 0"></div>
+  <div class="row"><select id="expfmt" onchange="expLoad()"><option value="json">JSON · acl-policy.json (bộ luật)</option><option value="js">JavaScript · acl-engine.js (bộ luật + hàm check, dùng ngay)</option><option value="csv">CSV · acl-policy.csv (mở bằng Excel)</option></select><button class="g" onclick="expDl()">Tải về</button><button onclick="expCopy()">Sao chép</button></div>
+  <pre id="expprev" class="code"></pre><div id="expmsg" class="ok"></div></div>
+  <div class="box"><h3>Cách dùng trong hệ thống chính</h3><pre id="expuse" class="code"></pre></div></section>
 
-          <ul class="rules" id="rules" aria-label="Luật truy cập đang áp dụng"></ul>
+<section id="audit" class="tab hide"><div class="box"><h2>Nhật ký (Sec. 4.6)</h2><table><tbody id="atb"></tbody></table></div></section>
+</main>
+<button id="fab" class="needs" title="Trợ lý AI" onclick="$('#bot').classList.toggle('hide')">AI</button>
+<div id="bot" class="box needs hide"><div class="row" style="margin-bottom:8px"><b style="flex:3;color:var(--c)">Trợ lý AI</b><button style="flex:0 0 36px;padding:2px" onclick="$('#bot').classList.add('hide')">×</button></div>
+  <div class="dim" style="margin-bottom:6px">Hỏi về luật, dữ liệu hoặc nhờ sửa luật (luật sửa sẽ chờ bạn duyệt).</div><div id="chatlog"></div>
+  <div class="row"><input id="msg" placeholder="Ví dụ: chặn role=user ghi users/*/email" onkeydown="if(event.key==='Enter')send()"><button style="flex:0 0 70px" onclick="send()">Gửi</button></div></div>
+</div>
 
-          <p class="sumline" id="sumline" role="status" aria-live="polite"></p>
-          <div class="legend" id="legend" aria-hidden="true"></div>
-          <div class="tablewrap" tabindex="0" aria-label="Bảng hồ sơ, cuộn ngang để xem thêm cột">
-            <table class="grid" id="grid"></table>
-          </div>
-          <div class="pager">
-            <button class="btn ghost" id="prev" type="button">Trang trước</button>
-            <span id="pageInfo"></span>
-            <button class="btn ghost" id="next" type="button">Trang sau</button>
-          </div>
-        </div>
-      </section>
+<div id="modal" class="hide" onclick="if(event.target===this)closePick()"><div class="box mb"><h3 id="mttl"></h3><div id="mmust"></div><div id="mopt"></div>
+  <div class="row" style="margin-top:14px"><button onclick="pkDef()">Mặc định</button><button onclick="pkNone()">Bỏ chọn hết</button><button class="g" onclick="pkOk()">Áp dụng</button><button onclick="closePick()">Đóng</button></div></div></div>
 
-      <!-- Nhật ký -->
-      <section class="row" id="auditSec" aria-labelledby="h-audit">
-        <div class="margin"><h2 id="h-audit">Nhật ký truy cập</h2></div>
-        <div class="body">
-          <p class="lede">Mỗi lần xem hồ sơ đều được ghi vào MongoDB, gồm vai trò, số dòng và tỉ lệ ô bị che.</p>
-          <div class="scroll"><table class="audit" id="audit"></table></div>
-        </div>
-      </section>
-    </div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+let TK=sessionStorage.t||'';
+async function api(p,m='GET',b){const r=await fetch('/api'+p,{method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+TK},body:b?JSON.stringify(b):undefined});
+  const j=await r.json().catch(()=>({}));if(r.status===401&&TK&&p!=='/login')logout();if(!r.ok)throw new Error(j.error||r.status);return j}
+async function login(){try{const j=await api('/login','POST',{user:$('#u').value,pass:$('#p').value});TK=j.token;sessionStorage.t=TK;start()}catch(e){$('#lerr').textContent=e.message}}
+function logout(){TK='';sessionStorage.clear();$('#app').classList.add('hide');$('#login').classList.remove('hide')}
+function tab(t){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('hide',x.id!==t));document.querySelectorAll('nav button[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  document.querySelectorAll('.mbtn').forEach(b=>b.textContent=mtxt());
+  ({over:()=>{info();viz()},m14,f510:fig,rules:loadRules,audit:loadAudit,sec:evalAC,exp:expLoad})[t]?.()}
+document.querySelectorAll('nav button[data-t]').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+async function start(){$('#login').classList.add('hide');$('#app').classList.remove('hide');try{const s=await api('/state');$('#app').classList.toggle('has',s.has);tab(s.has?'over':'setup')}catch{logout()}}
+function pickSrc(i){document.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.s==i));document.querySelectorAll('.pn[data-s]').forEach(p=>p.classList.toggle('hide',p.dataset.s!=i));
+  $('#shint').classList.add('hide');$('#sinfo').textContent='';const m=i==1||i==2;$('#mdl').classList.toggle('hide',!m);if(!m)$('#model').value='auto'}
+async function ingest(b){$('#sinfo').textContent='Đang phân tích…';try{await api('/ingest','POST',{model:$('#model').value,...b});$('#sinfo').textContent='';for(const k in PICK)delete PICK[k];$('#app').classList.add('has');tab('over')}catch(e){$('#sinfo').textContent='Lỗi: '+e.message}}
+function ingestFile(){const f=$('#file').files[0];if(!f)return $('#sinfo').textContent='Chọn một file trước.';const r=new FileReader();r.onload=()=>ingest({kind:'upload',content:r.result,filename:f.name});r.readAsText(f)}
+async function info(){const s=await api('/state');$('#sys').innerHTML=s.has?esc(s.system):'Chưa có dữ liệu.';
+  $('#meta').innerHTML=s.has?`Mô hình: <b>${s.model}</b> · ${s.paths} đường dẫn · ${s.rules} luật (${s.pending} chờ duyệt) · AI Gemini: ${s.ai?'<span class=ok>bật</span>':'<span class=wa>chưa cấu hình, đang dùng luật heuristic</span>'}`:''}
+// ---- visualizer (Figs. 1-10) ----
+const COL=l=>l<=2?'#00d4ff':l===3?'#3b82f6':'#8b5cf6';
+async function viz(){const src=$('#src').value;draw(await api('/graph?src='+src),'#viz','viz:'+src)}
+// ---- gộp nút: mỗi nhánh chỉ hiện vài nút, phần còn lại là 1 nút "…" bấm vào để chọn ----
+const PICK={},RAW={},LIM=l=>l<=1?4:3,CAPV=l=>l<=1?8:6,slim=n=>({id:n.id,label:n.label,path:n.path||''});let MR={},PK=null;
+function collapse(g,key){
+  const P=PICK[key]??={},nodes=g.nodes.map(n=>({...n})),id={};nodes.forEach(n=>id[n.id]=n);
+  const links=g.links.map(l=>({...l,source:l.source?.id??l.source,target:l.target?.id??l.target})),out=(ns,ls)=>({...g,nodes:ns,links:ls});
+  if(g.model==='graph'){                       // đồ thị tự do: giới hạn tổng số nút
+    if(nodes.length<=14)return out(nodes,links);
+    const must=nodes.filter(n=>n.role),opt=nodes.filter(n=>!n.role),def=opt.slice(0,Math.max(0,12-must.length)).map(n=>n.id),set=new Set(P['*']||def),
+      hid=opt.filter(n=>!set.has(n.id)),hs=new Set(hid.map(n=>n.id)),
+      m={id:'more:*',label:'…',cnt:hid.length,level:2,more:true,pk:{key,pid:'*',name:'đồ thị',must:must.map(slim),opts:opt.map(slim),chosen:[...set],def,cap:20}},seen=new Set(),ls=[];
+    links.forEach(l=>{const a=hs.has(l.source)?m.id:l.source,b=hs.has(l.target)?m.id:l.target;if(a===b)return;const k=a+'|'+b;if(seen.has(k))return;seen.add(k);ls.push({...l,source:a,target:b})});
+    return out([...nodes.filter(n=>n.role||set.has(n.id)),m],ls)}
+  const ch={},hp={};links.forEach(l=>{if(l.x)return;(ch[l.source]??=[]).push(l.target);hp[l.target]=1});   // cây: giới hạn số con của mỗi nút
+  const vis=new Set(),mls=[],walk=pid=>{vis.add(pid);const p=id[pid],kids=(ch[pid]||[]).map(k=>id[k]).filter(Boolean),lim=LIM(p.level),op=kids.filter(k=>!k.role);let show=kids;
+    if(kids.length>lim&&op.length){const mu=kids.filter(k=>k.role),def=op.slice(0,Math.max(0,lim-1-mu.length)).map(k=>k.id),set=new Set(P[pid]||def),hid=op.filter(k=>!set.has(k.id)),
+      m={id:'more:'+pid,label:'…',cnt:hid.length,level:p.level+1,more:true,pk:{key,pid,name:p.label,must:mu.map(slim),opts:op.map(slim),chosen:[...set],def,cap:CAPV(p.level)}};
+      show=[...kids.filter(k=>k.role||set.has(k.id)),m];nodes.push(m);id[m.id]=m;mls.push({source:pid,target:m.id,label:''})}
+    show.forEach(k=>k.more?vis.add(k.id):walk(k.id))};
+  nodes.filter(n=>!hp[n.id]).forEach(n=>walk(n.id));
+  return out(nodes.filter(n=>vis.has(n.id)),[...links.filter(l=>vis.has(l.source)&&vis.has(l.target)),...mls])}
+function pick(d,done){PK={p:d.pk,done,sel:new Set(d.pk.chosen)};pkRender();$('#modal').classList.remove('hide')}
+function pkRender(){const{p,sel}=PK,cap=Math.max(1,p.cap-p.must.length),full=sel.size>=cap;$('#mttl').textContent='Chọn nút hiển thị'+(p.name?' · '+p.name:'');
+  $('#mmust').innerHTML=p.must.length?'<div class="dim">Bắt buộc hiển thị</div>'+p.must.map(x=>`<label class="pk"><input type="checkbox" checked disabled><span>${esc(x.label)} <span class="dim">${esc(x.path)}</span></span></label>`).join(''):'';
+  $('#mopt').innerHTML=`<div class="dim" style="margin-top:8px">Tuỳ chọn · đã chọn ${sel.size}/${cap} (tối đa, để không bị tràn khung)</div>`+p.opts.map(x=>`<label class="pk"><input type="checkbox" data-i="${esc(x.id)}" ${sel.has(x.id)?'checked':''} ${full&&!sel.has(x.id)?'disabled':''}><span>${esc(x.label)} <span class="dim">${esc(x.path)}</span></span></label>`).join('')||'<div class="dim">Không có nút tuỳ chọn.</div>';
+  $('#mopt').querySelectorAll('input').forEach(i=>i.onchange=()=>{i.checked?sel.add(i.dataset.i):sel.delete(i.dataset.i);pkRender()})}
+const pkDef=()=>{PK.sel=new Set(PK.p.def);pkRender()},pkNone=()=>{PK.sel=new Set;pkRender()},closePick=()=>{$('#modal').classList.add('hide');PK=null},
+  pkOk=()=>{const{p,sel,done}=PK;(PICK[p.key]??={})[p.pid]=[...sel];closePick();done()};
+window.pkMore=id=>pick(MR[id],()=>m14());
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&PK)closePick()});
+// bố cục cây gọn theo từng cấp (dùng cho Hình 5)
+function layout(ns,ls,W){const by={},ch={},hp={};ns.forEach(n=>by[n.id]=n);ls.forEach(l=>{if(l.x)return;(ch[l.source]??=[]).push(l.target);hp[l.target]=1});
+  const T=n=>({n,c:(ch[n.id]||[]).map(k=>T(by[k]))}),rs=ns.filter(n=>!hp[n.id]),root=d3.hierarchy(rs.length===1?T(rs[0]):{n:null,c:rs.map(T)},d=>d.c),Wv=Math.max(W,root.leaves().length*58+60);
+  d3.tree().size([Wv-60,1]).separation(()=>1)(root);root.each(d=>{if(d.data.n){d.data.n.x=d.x+30;d.data.n.y=40+(d.data.n.level-1)*100}});return Wv}
+function draw(g0,sel,key=sel){RAW[sel]=[g0,key];const g=collapse(g0,key),svg=d3.select(sel);svg.selectAll('*').remove();
+  const W=svg.node().clientWidth||900,H=520,gr=g.model==='graph',tidy=!!g.tidy,inside=gr||g.inner||g.small;let Wv=W,sim=null;
+  const rad=d=>g.inner?34:d.more?14:d.level===1?20:gr?22:14,under=d=>inside||tidy?rad(d)+14:-20;
+  if(tidy){Wv=layout(g.nodes,g.links,W);const by={};g.nodes.forEach(n=>by[n.id]=n);svg.attr('viewBox',`0 0 ${Wv} ${H}`);g.links=g.links.map(l=>({...l,source:by[l.source],target:by[l.target]})).filter(l=>l.source&&l.target)}else svg.attr('viewBox',null);
+  (g.levels||[]).forEach((t,i)=>svg.append('text').attr('x',8).attr('y',tidy?20+i*100:34+(i+1)*90).attr('fill','#5c8db3').attr('font-size',11).text(t));
+  svg.append('defs').append('marker').attr('id','ar').attr('viewBox','0 -5 10 10').attr('refX',24).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#00d4ff');
+  const lk=svg.append('g').selectAll('line').data(g.links).join('line').attr('stroke','#1b6fb5').attr('marker-end',gr||g.arrows?'url(#ar)':null);
+  const ll=svg.append('g').selectAll('text').data(g.links).join('text').text(d=>d.label).attr('fill','#5c8db3').attr('font-size',11).attr('text-anchor','middle');
+  const dr=d3.drag().on('start',(e,d)=>{if(sim&&!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y;if(!sim){d.x=e.x;d.y=e.y;ticked()}}).on('end',(e,d)=>{if(sim){if(!e.active)sim.alphaTarget(0);d.fx=d.fy=null}});
+  const nd=svg.append('g').selectAll('g').data(g.nodes).join('g').style('cursor','grab').call(dr);
+  nd.append('circle').attr('r',rad).attr('fill','#020a17').attr('stroke',d=>d.more?'#ffc400':d.role?ROLE[d.role]:d.state==='deny'?'#ff3b5c':d.state==='grant'?'#00ff9c':COL(d.level)).attr('stroke-dasharray',d=>d.more?'4 3':null).attr('stroke-width',d=>d.state?3.5:2).style('filter',d=>`drop-shadow(0 0 5px ${d.more?'#ffc400':COL(d.level)})`);
+  nd.append('text').text(d=>d.more?'…':tidy&&!g.small&&d.label.length>9?d.label.slice(0,8)+'…':d.label).attr('fill',d=>d.more?'#ffc400':'#b9e6ff').attr('font-size',d=>d.more?18:g.inner?10:11).attr('text-anchor','middle').attr('dy',d=>d.more?6:inside?4:under(d));
+  nd.filter(d=>d.more&&d.cnt).append('text').text(d=>'+'+d.cnt).attr('fill','#ffc400').attr('font-size',11).attr('text-anchor','middle').attr('dy',under);
+  nd.append('title').text(d=>d.more?'Bấm để chọn nút cần hiển thị':(d.path||d.label)+(d.state?' ['+d.state+']':''));
+  nd.filter(d=>d.more).style('cursor','pointer').on('click',(e,d)=>pick(d,()=>draw(RAW[sel][0],sel,RAW[sel][1])));
+  const ticked=()=>{if(!tidy)g.nodes.forEach(d=>{d.x=Math.max(25,Math.min(W-25,d.x));d.y=Math.max(25,Math.min(H-25,d.y))});
+    lk.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2-4);nd.attr('transform',d=>`translate(${d.x},${d.y})`)};
+  if(tidy)ticked();else sim=d3.forceSimulation(g.nodes).force('l',d3.forceLink(g.links).id(d=>d.id).distance(gr||g.inner?120:g.free?80:60)).force('c',d3.forceManyBody().strength(-220)).force('x',d3.forceX(W/2).strength(.05)).force('y',d3.forceY(d=>gr||g.free?H/2:30+d.level*90).strength(gr||g.free?.05:.6)).on('tick',ticked)}
+// ---- rules ----
+async function loadRules(){const R=await api('/rules');$('#rtb').innerHTML=R.map(r=>`<tr class="${r.status}"><td>${r.status==='pending'?'<span class=wa>chờ duyệt</span>':'<span class=ok>đã duyệt</span>'}<br><span class="tag">${esc(r.src)}</span></td>
+  <td>${esc(r.subject.join(', ')||'mọi chủ thể')}</td><td class="${r.permission==='grant'?'ok':'no'}">${r.permission}</td><td>${esc(r.object)}</td><td>${esc(r.actions.join(','))}</td><td>${esc(r.condition)}</td><td class="dim">${esc(r.reason)}</td>
+  <td>${r.status==='pending'?`<button class=g onclick="setSt('${r.id}')">Duyệt</button> `:''}<button class=r onclick="delRule('${r.id}')">Xoá</button></td></tr>`).join('')||'<tr><td colspan=8 class=dim>Chưa có luật.</td></tr>'}
+const setSt=async id=>{await api('/rules/'+id,'PATCH',{status:'approved'});loadRules()},delRule=async id=>{await api('/rules/'+id,'DELETE');loadRules()},approveAll=async()=>{await api('/rules/approve-all','POST',{});loadRules()};
+async function addRule(){try{await api('/rules','POST',{subject:$('#rs').value,object:$('#ro').value,actions:$('#ra').value,permission:$('#rp').value,condition:$('#rc').value,reason:$('#rr').value});$('#rerr').textContent='';loadRules()}catch(e){$('#rerr').textContent=e.message}}
+// ---- chat ----
+async function send(){const m=$('#msg').value.trim();if(!m)return;$('#msg').value='';const L=$('#chatlog');L.insertAdjacentHTML('beforeend',`<div class="m u">&gt; ${esc(m)}</div>`);
+  try{const r=await api('/chat','POST',{message:m});L.insertAdjacentHTML('beforeend',`<div class="m">${esc(r.reply)}${r.changed?`\n<span class=wa>[${r.changed} luật thay đổi, xem tab Luật để duyệt]</span>`:''}</div>`)}catch(e){L.insertAdjacentHTML('beforeend',`<div class="m no">${esc(e.message)}</div>`)}L.scrollTop=L.scrollHeight}
+// ---- check / evaluate / audit ----
+async function check(){let ctx={};try{ctx=JSON.parse($('#cx').value||'{}')}catch{return $('#cres').textContent='Môi trường phải là JSON hợp lệ'}
+  try{const r=await api('/check','POST',{subject:$('#cs').value,object:$('#co').value,action:$('#ca').value,ctx});$('#cres').innerHTML=r.allow?'<span class=ok>CHO PHÉP</span>':'<span class=no>TỪ CHỐI</span>';$('#cby').textContent=r.by?`Theo luật ${r.by.id}: ${r.by.permission} ${r.by.object}`:'Không có luật cho phép khớp (mặc định từ chối).'}catch(e){$('#cres').textContent=e.message}}
+async function evalAC(){const r=await api('/evaluate');$('#score').textContent=r.score+'/100';$('#sb').style.width=r.score+'%';
+  $('#checks').innerHTML=r.checks.map(c=>`<div class="m"><span class="${c.ok?'ok':'no'}">${c.ok?'[ĐẠT]':'[CHƯA]'}</span> ${esc(c.name)} <span class="tag">§${c.ref}</span> <span class="dim">${esc(c.detail)}</span></div>`).join('')}
+async function inj(){const r=await api('/injection-test');$('#injr').innerHTML=r.map(x=>`<div class="m"><span class="${x.blocked?'ok':'no'}">${x.blocked?'[CHẶN]':'[LỌT]'}</span> <code>${esc(x.payload)}</code></div>`).join('')}
+async function loadAudit(){const a=await api('/audit');$('#atb').innerHTML=a.map(x=>`<tr><td class=dim>${x.t.slice(11,19)}</td><td class="${/fail|block/.test(x.ev)?'no':''}">${esc(x.ev)}</td><td class=dim>${esc(x.d)}</td></tr>`).join('')}
+// ---- Hình 1–4: bốn dạng NoSQL ----
+async function m14(){const s=await api('/state'),T=(h,r)=>`<table><tr><th>${h[0]}</th><th>${h[1]}</th></tr>${r}</table>`,
+  kv=T(['Key','Value'],'<tr><td>Key 1</td><td>Value 1</td></tr><tr><td>…</td><td>…</td></tr><tr><td>Key n</td><td>Value n</td></tr>'),
+  cf=n=>`<div class="cb"><div class="dim">Column family ${n}</div><div class="cb s"><div class="dim">Row 1</div>${T(['Column 1','Column n'],'<tr><td>Value 1</td><td>Value 1</td></tr><tr><td>Value n</td><td>Value n</td></tr>')}<div class="dim">⋮ Row n</div></div></div>`,
+  dc=n=>`<div class="cb"><div class="dim">Collection ${n}</div><div class="cb s"><pre>Document 1\n{ Field 1 … Field n }</pre><pre>Document n\n{ Field 1 … Field n }</pre></div></div>`,
+  nd=n=>`<div class="cb s"><b>Node ${n}</b><pre>data\nEdge</pre></div>`,
+  C=[['keyvalue','Hình 1. Key-value database model','Key-value database',`<div class="cy"><div class="cb"><div class="dim">Table 1</div>${kv}</div><div class="cb"><div class="dim">Table n</div>${kv}</div></div>`],
+     ['wide','Hình 2. Wide-column database model','Wide Column database',`<div class="cy">${cf(1)}${cf('n')}</div>`],
+     ['document','Hình 3. Document database model','Document database',`<div class="cy">${dc(1)}${dc('n')}</div>`],
+     ['graph','Hình 4. Graph database model','Graph database',`<div class="cy">${nd(1)}<span>……</span>${nd('n')}</div>`]];
+  const real=MODE==='data'?await api('/graph?src=current'):null;MR={};
+  const rb=g0=>{const g=collapse(g0,'m14'),ch={},id={};g.nodes.forEach(n=>{id[n.id]=n;if(n.more)MR[n.id]=n});g.links.forEach(l=>(ch[l.source]??=[]).push({n:id[l.target],label:l.label}));
+    const kd=n=>(ch[n.id]||[]).map(x=>x.n),vl=n=>kd(n).find(k=>!k.more)?.label||'',L2=g.nodes.filter(n=>n.level===2),
+      mo=n=>`<span class="tag more" onclick="pkMore('${n.id}')" title="Bấm để chọn nút hiển thị">… ${n.cnt?'+'+n.cnt:'✎'}</span>`,ell=s=>`<span class="ell" title="${esc(s)}">${esc(s)}</span>`,box=(t,f)=>t.more?`<div class="cb">${mo(t)}</div>`:f(t);
+    if(g.model==='keyvalue')return`<div class="cy">${L2.map(t=>box(t,t=>`<div class="cb"><div class="dim">Table ${esc(t.label)}</div>${T(['Key','Value'],kd(t).map(k=>k.more?`<tr><td colspan="2">${mo(k)}</td></tr>`:`<tr><td>${ell(k.label)}</td><td>${ell(vl(k))}</td></tr>`).join(''))}</div>`)).join('')}</div>`;
+    if(g.model==='wide')return`<div class="cy">${L2.map(t=>box(t,t=>`<div class="cb"><div class="dim">Column family ${esc(t.label)}</div>${kd(t).map(r=>box(r,r=>`<div class="cb s"><div class="dim">Row ${esc(r.label)}</div><table><tr>${kd(r).map(c=>`<th>${c.more?mo(c):ell(c.label)}</th>`).join('')}</tr><tr>${kd(r).map(c=>`<td>${c.more?'':ell(vl(c))}</td>`).join('')}</tr></table></div>`)).join('')}</div>`)).join('')}</div>`;
+    if(g.model==='document')return`<div class="cy">${L2.map(t=>box(t,t=>`<div class="cb"><div class="dim">Collection ${esc(t.label)}</div>${kd(t).map(d=>box(d,d=>`<div class="cb s"><b>${esc(d.label)}</b> {${kd(d).map(f=>f.more?`<div class="fl">${mo(f)}</div>`:`<div class="fl">${ell(f.label)}: ${ell(vl(f))}</div>`).join('')}}</div>`)).join('')}</div>`)).join('')}</div>`;
+    return`<div class="cy">${g.nodes.map(n=>box(n,n=>`<div class="cb s"><b>${esc(n.label)}</b><div class="fl dim">${(ch[n.id]||[]).slice(0,4).map(x=>'→ '+esc(x.n.label)+(x.label?' ('+esc(x.label)+')':'')).join('<br>')||'(không có cạnh ra)'}</div></div>`)).join('')}</div>`};
+  $('#g4').innerHTML=C.map(([k,cap,t,b])=>{const mine=real&&s.model===k;return`<div class="${s.model===k?'cur':''}" style="${real&&!mine?'opacity:.4':''}"><div class="cyl"><b>${t}</b>${mine?rb(real):b}</div><div style="text-align:center;margin-top:6px" class="dim">${cap}${mine?' · dữ liệu của bạn':''}</div></div>`}).join('')}
+// ---- Hình 5–10: cấu trúc quan hệ và thuộc tính chủ thể/đối tượng (kéo thả được) ----
+const ROLE={sub:'#00d4ff',obj:'#ffc400',act:'#00ff9c',no:'#ff3b5c'};
+let MODE='paper';const mtxt=()=>MODE==='paper'?'Đang xem: mẫu bài báo · bấm để xem theo dữ liệu của tôi':'Đang xem: dữ liệu của tôi · bấm để xem mẫu bài báo';
+function setMode(){MODE=MODE==='paper'?'data':'paper';document.querySelectorAll('.mbtn').forEach(b=>b.textContent=mtxt());$('#m14').classList.contains('hide')?fig():m14()}
+const mk=(ns,es,o={})=>({nodes:ns.map(([id,label,level,role])=>({id,label,level,role})),links:es.map(([source,target,label])=>({source,target,label:label||''})),...o});
+const LEG=' Cyan: chủ thể và thuộc tính chủ thể · Vàng: đối tượng và thuộc tính đối tượng · Xanh lá: hành động.';
+const FIGS={
+5:()=>{const ns=[['r','1',1]],es=[];let c=0;const rec=(p,l)=>{if(l>5)return;for(let k=0;k<2;k++){const id='n'+c++;ns.push([id,String(l),l]);es.push([p,id]);rec(id,l+1)}};rec('r',2);
+  return{cap:'Cây tối đa 5 cấp của key-value, wide-column, document (cấp 1 là database).',g:mk(ns,es,{model:'tree',small:1,tidy:1,arrows:1,levels:['Cấp 1 · database','Cấp 2 · Tables / Column families / Collections','Cấp 3 · Keys / Rows / Documents','Cấp 4 · values / Column ID / Fields','Cấp 5 · Null / values / values']})}},
+6:()=>({cap:'Graph model là đồ thị có hướng: mỗi nút có thể có nhiều cạnh và có thể tạo vòng.',g:mk([1,2,3,4,5,6,7,8].map(i=>['v'+i,String(i),2]),[[1,2],[1,3],[2,4],[3,4],[4,1],[2,5],[5,6],[6,2],[3,7],[7,8],[8,3],[5,8]].map(([a,b])=>['v'+a,'v'+b]),{model:'graph'})}),
+7:()=>({cap:'Key-value: thuộc tính đi qua liên kết từ cấp 2 đến cấp 3.'+LEG,rule:'Luật: user x thuộc group y của department z có thể đọc file f do branch g của company h quản lý.',
+  g:mk([['db','Key-value database',1],['dep','department z',2,'sub'],['com','company h',2,'obj'],['o1','…',3],['grp','group y',3,'sub'],['o2','…',3],['br','branch g',3,'obj'],['usr','user x',4,'sub'],['fil','file f',4,'obj']],
+  [['db','dep'],['db','com'],['dep','grp'],['dep','o1'],['com','o2'],['com','br'],['grp','usr'],['br','fil']],{model:'tree',inner:1,arrows:1})}),
+8:()=>({cap:'Wide-column và document: thuộc tính đi qua liên kết từ cấp 2 đến cấp 4; một nút đơn lẻ cũng đủ tạo luật (cấp dưới thừa hưởng quyền).'+LEG,rule:'Luật: user w trong group x của department y thuộc organization z có thể đọc file f do branch g của division h thuộc company i quản lý.',
+  g:mk([['db','Wide-column / Document database',1],['org','organization z',2,'sub'],['cmp','Company i',2,'obj'],['dep','department y',3,'sub'],['div','division h',3,'obj'],['grp','group x',4,'sub'],['br','branch g',4,'obj'],['usr','user w',5,'sub'],['fil','file f',5,'obj']],
+  [['db','org'],['db','cmp'],['org','dep'],['cmp','div'],['dep','grp'],['div','br'],['grp','usr'],['br','fil']],{model:'tree',inner:1,arrows:1})}),
+9:()=>({cap:'Graph: thuộc tính là chuỗi cạnh và nút, không cần quan hệ phân cấp.'+LEG,rule:'Luật: user x trong group y làm việc cho company z có thể đọc file f do department d quản lý thuộc organization o.',
+  g:mk([['x','user x',2,'sub'],['y','group y',2,'sub'],['z','company z',2,'sub'],['f','file f',2,'obj'],['d','department d',2,'obj'],['o','organization o',2,'obj']],
+  [['x','y','in'],['y','z','works for'],['f','d','managed by'],['d','o','belongs to']],{model:'graph',inner:1})}),
+10:()=>({cap:'Graph: cạnh dùng làm hành động được phép, nên luật nằm ngay trong database mà không cần lưu ngoài.'+LEG,rule:'Luật nhúng: user x —in→ group y —can read→ file f —belongs to→ organization o.',
+  g:mk([['x','user x',2,'sub'],['y','group y',2,'sub'],['a','can read',2,'act'],['f','file f',2,'obj'],['o','organization o',2,'obj']],
+  [['x','y','in'],['y','a'],['a','f'],['f','o','belongs to']],{model:'graph',inner:1})})};
+const gl=(p,x)=>p==='*'||new RegExp('^'+p.split('*').map(a=>a.replace(/[.+?^${}()|[\]\\]/g,'\\$&')).join('[^/]*')+'(/.*)?$').test(x);
+async function figData(n){
+  const g=await api('/graph?src=current'),tree=g.model!=='graph',nodes=g.nodes,links=g.links.map(l=>({...l}));
+  const LV={keyvalue:['Cấp 1 · Key-value database','Cấp 2 · Tables','Cấp 3 · Keys','Cấp 4 · values'],wide:['Cấp 1 · Wide-column database','Cấp 2 · Column families','Cấp 3 · Rows','Cấp 4 · Column ID','Cấp 5 · values'],document:['Cấp 1 · Document database','Cấp 2 · Collections','Cấp 3 · Documents','Cấp 4 · Fields','Cấp 5 · values']};
+  if(n===5)return tree?{cap:`Cây phân cấp thực tế của dữ liệu bạn nạp (${g.model}).`,g:{model:'tree',arrows:1,tidy:1,nodes,links,levels:LV[g.model]}}:{cap:'Dữ liệu của bạn là graph nên không có cây phân cấp; hiển thị đồ thị có hướng.',g};
+  if(n===6)return{cap:'Dữ liệu của bạn dưới dạng đồ thị có hướng.'+(tree?' Cạnh đi từ nút cha đến nút con.':''),g:{model:tree?'tree':'graph',free:tree,arrows:1,nodes,links}};
+  const R=await api('/rules'),sel=$('#frule'),keep=sel.value;
+  sel.innerHTML=R.map(r=>`<option value="${r.id}">${esc(r.permission)} · ${esc(r.object)} · ${esc(r.subject.join(',')||'mọi chủ thể')}</option>`).join('');
+  if(R.some(r=>r.id===keep))sel.value=keep;
+  const r=R.find(x=>x.id===sel.value)||R[0];if(!r)return{cap:'Chưa có luật để vẽ. Hãy thêm hoặc đề xuất luật trước.',g:{model:'tree',free:1,arrows:1,nodes,links}};
+  const by={},par={};nodes.forEach(x=>by[x.id]=x);links.forEach(l=>par[l.target]=l.source);
+  const hit=nodes.filter(x=>x.path&&gl(r.object,x.path)).slice(0,8);
+  hit.forEach(x=>{x.role='obj';if(tree)for(let p=par[x.id];p;p=par[p])by[p].role='obj'});
+  const S=(r.subject.length?r.subject:['mọi chủ thể']).map((l,i)=>({id:'S'+i,label:l,level:2,role:'sub'})),lab=r.permission+' '+r.actions.join(','),ex=[...S],lk=[];
+  if(n===10){ex.push({id:'A',label:lab,level:2,role:r.permission==='grant'?'act':'no'});S.forEach(x=>lk.push({source:x.id,target:'A',label:'',x:1}));hit.forEach(h=>lk.push({source:'A',target:h.id,label:'',x:1}))}
+  else S.forEach(x=>hit.forEach(h=>lk.push({source:x.id,target:h.id,label:lab,x:1})));
+  const want={7:['keyvalue'],8:['wide','document'],9:['graph'],10:['graph']}[n],note=want.includes(g.model)?'':` Lưu ý: hình này vốn minh hoạ mô hình ${want.join('/')}, dữ liệu của bạn là ${g.model}.`;
+  return{cap:`Luật ${r.id} áp lên dữ liệu thật: chủ thể (cyan), đối tượng khớp "${r.object}" (vàng), `+(n===10?'hành động là một nút (xanh lá, hoặc đỏ nếu deny).':'hành động ghi trên cạnh.')+note,
+    rule:`Luật: [${r.subject.join(', ')||'mọi chủ thể'}] ${r.permission} ${r.actions.join(',')} trên ${r.object}${r.condition?' nếu '+r.condition:''}. ${hit.length} nút khớp.`,
+    g:{model:tree?'tree':'graph',free:tree,arrows:1,nodes:[...nodes,...ex],links:[...links,...lk]}}}
+async function fig(){const n=$('#fig').value,data=MODE==='data';$('#frule').classList.toggle('hide',!(data&&+n>=7));
+  const F=data?await figData(+n):FIGS[n]();$('#figcap').textContent=F.cap;$('#figrule').textContent=F.rule||'';draw(F.g,'#fsvg','fig'+n+MODE+(data&&+n>=7?':'+$('#frule').value:''))}
+// ---- xuất phân quyền ----
+const USE=`// 1) Tải acl-engine.js, đặt vào dự án của hệ thống chính
+const acl = require('./acl-engine');
 
-    <!-- Sổ tay phân tích: hiển thị notebook .ipynb -->
-    <section class="row" id="notebook" aria-labelledby="h-nb">
-      <div class="margin"><div class="stick"><h2 id="h-nb">Sổ tay phân tích</h2><nav class="toc" id="nbToc" aria-label="Các phần của notebook"></nav></div></div>
-      <div class="body">
-        <h3>Notebook .ipynb chạy ngay trên dữ liệu của bạn</h3>
-        <p class="lede">Máy chủ xuất dataset đang chọn từ MongoDB ra CSV, chạy notebook bằng Python rồi hiển thị toàn bộ kết quả ở dưới: bảng, biểu đồ và các demo bám theo bài báo NIST IR 8504.</p>
-        <div class="nb-actions">
-          <button class="btn" id="nbRun" type="button">Chạy notebook với dataset này</button>
-          <button class="btn ghost" id="nbToggle" type="button">Hiện toàn bộ mã</button>
-          <a class="btn ghost" id="nbDlSrc" href="/api/notebook/download?kind=source">Tải notebook gốc</a>
-          <a class="btn ghost" id="nbDlRun" href="/api/notebook/download">Tải bản đã chạy</a>
-        </div>
-        <p class="msg" id="nbMsg" role="status" aria-live="polite"></p>
-        <p class="nb-meta" id="nbMeta"></p>
-        <div class="nb" id="nbBody"><p class="empty">Đang tải notebook…</p></div>
-      </div>
-    </section>
-  </main>
+// 2) Kiểm tra quyền trước khi truy cập dữ liệu
+acl.check(['role=user','dept=HR'], 'users/*/salary', 'read', { class: 5 });   // true | false
+acl.decide(['role=user'], 'users/*/salary', 'read');                          // { allow, rule }
 
-  <footer class="foot">
-    <p>Vai trò trên trang này chỉ để minh hoạ cách phân quyền theo trường dữ liệu, chưa có đăng nhập thật.</p>
-  </footer>
+// 3) Ví dụ middleware Express
+app.get('/users/:id/salary', (req, res, next) =>
+  acl.check(req.user.attrs, 'users/*/salary', 'read') ? next() : res.sendStatus(403));
 
-  <script src="/vendor/chart.js"></script>
-  <script src="/app.js"></script>
-</body>
-</html>
+// Nếu hệ thống chính không dùng Node: nạp acl-policy.json (hoặc .csv) và áp dụng cùng quy tắc:
+//  - Luật khớp khi: mọi thuộc tính của luật nằm trong thuộc tính của người dùng, đối tượng khớp mẫu
+//    (dấu * thay một cấp, luật ở cấp cha áp xuống cấp con), hành động khớp, điều kiện đúng.
+//  - Có luật deny khớp -> TỪ CHỐI. Không có luật grant khớp -> TỪ CHỐI (mặc định từ chối).
+//  - Trường "checksum" (sha256 của danh sách luật) để kiểm tra file không bị sửa.`;
+async function raw(p){const r=await fetch('/api'+p,{headers:{Authorization:'Bearer '+TK}});if(r.status===401)logout();if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||r.status);return r.text()}
+async function expLoad(){try{const s=await api('/state'),f=$('#expfmt').value;$('#expinfo').innerHTML=`<b class="ok">${s.rules-s.pending}</b> luật đã duyệt sẽ được xuất`+(s.pending?` · <span class="wa">${s.pending} luật chờ duyệt bị bỏ qua (vào tab Luật để duyệt)</span>`:'');
+  $('#expuse').textContent=USE;$('#expmsg').textContent='';$('#expprev').textContent=await raw('/export?format='+f)}catch(e){$('#expmsg').textContent=e.message}}
+async function expDl(){try{const f=$('#expfmt').value,t=await raw('/export?format='+f),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'}));a.download={json:'acl-policy.json',csv:'acl-policy.csv',js:'acl-engine.js'}[f];document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);$('#expmsg').textContent='Đã tải '+a.download}catch(e){$('#expmsg').textContent=e.message}}
+async function expCopy(){try{await navigator.clipboard.writeText($('#expprev').textContent);$('#expmsg').textContent='Đã sao chép'}catch{$('#expmsg').textContent='Trình duyệt không cho sao chép, hãy dùng nút Tải về'}}
+$('#p').onkeydown=e=>{if(e.key==='Enter')login()};if(TK)start();
+</script></body></html>
