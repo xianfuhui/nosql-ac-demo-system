@@ -54,6 +54,15 @@ tr.pending td{background:#ffc40010}
 .fl{padding-left:12px;word-break:break-word}
 /* tab xuất */
 .code{max-height:420px;overflow:auto;background:#010812;border:1px solid var(--ln);padding:10px;margin:10px 0;white-space:pre;font-size:12.5px}
+/* benchmark */
+.kpi{background:#010812;border:1px solid var(--ln);border-radius:4px;padding:14px 16px;text-align:center}
+.kpi b{display:block;font-size:26px;color:var(--c);margin-bottom:4px}
+.kpi.ok b{color:var(--ok)}.kpi.no b{color:var(--no)}.kpi.wa b{color:var(--wa)}
+.kpi small{color:var(--dim);font-size:11px}
+.comp-bar{display:inline-flex;flex-direction:column;align-items:center;gap:4px;min-width:90px}
+.comp-bar span{font-size:11px;color:var(--dim)}.comp-bar .pct{font-size:14px;font-weight:600}
+.comp-bar .track{width:70px;height:8px;background:#03122a;border:1px solid var(--ln);border-radius:4px}
+.comp-bar .fill{height:100%;border-radius:4px}
 </style></head><body>
 
 <section id="login"><div class="box">
@@ -65,7 +74,7 @@ tr.pending td{background:#ffc40010}
 
 <div id="app" class="hide">
 <nav><b>NoSQL-ACL</b>
-  <button data-t="setup">Nạp dữ liệu</button><button class="needs" data-t="over">Tổng quan</button><button class="needs" data-t="m14">4 kiểu NoSQL</button><button class="needs" data-t="rules">Luật</button><button class="needs" data-t="check">Kiểm tra truy cập</button><button class="needs" data-t="sec">Đánh giá &amp; bảo mật</button><button class="needs" data-t="exp">Xuất phân quyền</button><button class="needs" data-t="audit">Nhật ký</button><button onclick="logout()">Thoát</button></nav>
+  <button data-t="setup">Nạp dữ liệu</button><button class="needs" data-t="over">Tổng quan</button><button class="needs" data-t="m14">4 kiểu NoSQL</button><button class="needs" data-t="rules">Luật</button><button class="needs" data-t="check">Kiểm tra truy cập</button><button class="needs" data-t="sec">Đánh giá &amp; bảo mật</button><button data-t="bench">📊 Benchmark</button><button class="needs" data-t="exp">Xuất phân quyền</button><button class="needs" data-t="audit">Nhật ký</button><button onclick="logout()">Thoát</button></nav>
 <main>
 <section id="setup" class="tab"><div class="box" id="gbox"><h2>Gemini API</h2>
   <div class="dim">Nhập API key để AI sinh luật và trả lời chat. Key chỉ lưu trong bộ nhớ máy chủ (mất khi khởi động lại), không ghi ra file.</div>
@@ -77,14 +86,24 @@ tr.pending td{background:#ffc40010}
     <button class="opt" data-s="0" onclick="pickSrc(0)"><b>0 · Dữ liệu mẫu</b><small>Test nhanh 4 mô hình NoSQL</small></button>
     <button class="opt" data-s="1" onclick="pickSrc(1)"><b>1 · Tải file</b><small>JSON / CSV từ máy bạn</small></button>
     <button class="opt" data-s="2" onclick="pickSrc(2)"><b>2 · Link dữ liệu</b><small>URL công khai trả về JSON / CSV</small></button>
-    <button class="opt" data-s="3" onclick="pickSrc(3)"><b>3 · Quét database</b><small>MongoDB hoặc Redis có sẵn</small></button>
+    <button class="opt" data-s="3" onclick="pickSrc(3)"><b>3 · Quét database</b><small>MongoDB · Redis · Cassandra · Neo4j</small></button>
   </div>
   <div id="shint" class="dim">Chọn một cách nạp ở trên để hiện ô nhập.</div>
-  <div class="pn hide" data-s="0"><h3>0. Dùng dữ liệu mẫu để test</h3><div class="row"><select id="smp"><option value="document">Document (users, orders)</option><option value="keyvalue">Key-value (session, cache)</option><option value="wide">Wide-column (profile, logs)</option><option value="graph">Graph (user, group, file)</option></select><button class="g" onclick="ingest({kind:'sample',model:$('#smp').value})">Nạp dữ liệu mẫu</button></div></div>
+  <div class="pn hide" data-s="0"><h3>0. Dùng dữ liệu mẫu để test</h3><div class="row"><select id="smp">
+    <option value="hospital">🏥 Bệnh viện Đa khoa — dataset thực tế (benchmark)</option>
+    <option value="document">Document (users, orders)</option>
+    <option value="keyvalue">Key-value (session, cache)</option>
+    <option value="wide">Wide-column (profile, logs)</option>
+    <option value="graph">Graph (user, group, file)</option>
+  </select><button class="g" onclick="ingest({kind:'sample',model:$('#smp').value})">Nạp dữ liệu mẫu</button></div>
+  <div class="dim" style="margin-top:6px" id="smp-hint"></div></div>
   <div class="pn hide" data-s="1"><h3>1. Tải file (JSON / CSV)</h3><div class="row"><input type="file" id="file" accept=".json,.csv,.txt"><button onclick="ingestFile()">Tải lên và phân tích</button></div></div>
   <div class="pn hide" data-s="2"><h3>2. Link dữ liệu (URL công khai)</h3><div class="row"><input id="url" placeholder="https://example.com/data.json"><button onclick="ingest({kind:'url',url:$('#url').value})">Lấy và phân tích</button></div></div>
-  <div class="pn hide" data-s="3"><h3>3. Quét database có sẵn</h3><div class="row"><input id="muri" placeholder="mongodb://user:pass@host:27017/dbname"><button onclick="ingest({kind:'mongo',uri:$('#muri').value})">Quét MongoDB</button></div>
-    <div class="row"><input id="ruri" placeholder="redis://host:6379"><button onclick="ingest({kind:'redis',uri:$('#ruri').value})">Quét Redis</button></div></div>
+  <div class="pn hide" data-s="3"><h3>3. Quét database có sẵn (đủ 4 kiểu NoSQL)</h3><div class="dim">Chọn đúng loại database; mô hình dữ liệu được gán tự động theo loại.</div>
+    <div class="row"><span class="tag" style="flex:0 0 96px">Document</span><input id="muri" placeholder="mongodb://user:pass@host:27017/dbname"><button onclick="ingest({kind:'mongo',uri:$('#muri').value})">Quét MongoDB</button></div>
+    <div class="row"><span class="tag" style="flex:0 0 96px">Key-value</span><input id="ruri" placeholder="redis://host:6379"><button onclick="ingest({kind:'redis',uri:$('#ruri').value})">Quét Redis</button></div>
+    <div class="row"><span class="tag" style="flex:0 0 96px">Wide-column</span><input id="curi" placeholder="cassandra://user:pass@host:9042/keyspace?dc=datacenter1"><button onclick="ingest({kind:'cassandra',uri:$('#curi').value})">Quét Cassandra</button></div>
+    <div class="row"><span class="tag" style="flex:0 0 96px">Graph</span><input id="nuri" placeholder="neo4j://user:pass@host:7687/neo4j"><button onclick="ingest({kind:'neo4j',uri:$('#nuri').value})">Quét Neo4j</button></div></div>
   <div id="mdl" class="hide" style="margin-top:12px"><label class="dim">Mô hình dữ liệu </label><select id="model"><option value="auto">Tự nhận diện mô hình</option><option value="keyvalue">Key-value</option><option value="wide">Wide-column</option><option value="document">Document</option><option value="graph">Graph</option></select></div>
   <div id="sinfo" class="wa" style="margin-top:10px"></div></div></section>
 
@@ -115,6 +134,59 @@ tr.pending td{background:#ffc40010}
   <div class="box"><h3>Cách dùng trong hệ thống chính</h3><pre id="expuse" class="code"></pre></div></section>
 
 <section id="audit" class="tab hide"><div class="box"><h2>Nhật ký (Sec. 4.6)</h2><table><tbody id="atb"></tbody></table></div></section>
+
+<section id="bench" class="tab hide">
+<div class="box"><h2>📊 Benchmark — NIST IR 8504</h2>
+  <div class="dim">Benchmark chạy trên <b>dữ liệu bạn đang nạp</b>: bộ luật chuẩn và ca kiểm thử đi theo dữ liệu đó · đo hiệu năng bằng <code>process.hrtime.bigint()</code>.</div>
+  <div id="bench-state" style="margin-top:8px"></div>
+  <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--c)">Bộ chuẩn đánh giá (xem / tải / thay bằng bộ của bạn)</summary>
+    <div class="dim" style="margin:8px 0">Mẫu Bệnh viện dùng 20 luật soạn tay. Dữ liệu khác dùng <b>luật tham chiếu tự sinh</b> từ cấu trúc (admin / editor / user, chặn trường nhạy cảm, chặn xoá) — chỉ mang tính tham khảo. Muốn đánh giá chuẩn xác, hãy tải bộ tham chiếu về, chỉnh theo nghiệp vụ của bạn rồi nạp lại.</div>
+    <div class="row"><input type="file" id="gtfile" accept=".json"><button class="g" onclick="gtUpload()">Dùng bộ chuẩn này</button><button onclick="gtDownload()">Tải bộ chuẩn hiện tại (.json)</button><button class="r" onclick="gtReset()">Về mặc định</button></div>
+    <div class="dim" style="margin-top:6px">Định dạng: <code>{"rules":[{"subject":["role=user"],"object":"orders/*/card","actions":["read"],"permission":"deny"}],"tests":[{"subject":["role=user"],"object":"orders/o1/card","action":"read","expected":false}]}</code> — <code>tests</code> có thể bỏ trống, hệ thống tự sinh từ luật.</div>
+    <div id="gt-msg" style="margin-top:6px"></div></details>
+</div>
+
+<!-- Panel 1: Độ chính xác chuyển đổi luật -->
+<div class="box"><div class="row"><h2 style="flex:3">① Độ chính xác chuyển đổi luật</h2><button onclick="runRuleAccuracy()">So sánh với luật chuẩn</button></div>
+  <div class="dim" style="margin-bottom:10px">AI sinh luật từ cấu trúc dữ liệu đang nạp, đem so với bộ luật chuẩn của chính dữ liệu đó (xem mục Bộ chuẩn ở trên). So sánh theo từng thành phần (chủ thể / đối tượng / hành động / quyền / điều kiện).</div>
+  <div id="ra-summary" class="hide">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px" id="ra-kpi"></div>
+    <div style="margin-bottom:8px"><b>Tỷ lệ đúng theo từng thành phần:</b></div>
+    <div id="ra-comp" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+    <details><summary style="cursor:pointer;color:var(--c)">Chi tiết từng luật chuẩn</summary>
+    <table style="margin-top:8px"><thead><tr><th>#</th><th>Luật chuẩn</th><th>Luật khớp nhất</th><th>Chủ thể</th><th>Đối tượng</th><th>Hành động</th><th>Quyền</th><th>Điều kiện</th><th>Khớp</th></tr></thead><tbody id="ra-detail"></tbody></table></details>
+  </div>
+  <div id="ra-msg" class="dim"></div>
+</div>
+
+<!-- Panel 2: Soạn luật thủ công vs AI -->
+<div class="box"><div class="row"><h2 style="flex:3">② Soạn luật: Thủ công vs AI</h2><button onclick="loadAuthoringStats()">Làm mới</button></div>
+  <div class="dim" style="margin-bottom:10px">Cùng bộ quy định, so sánh thời gian soạn và số lỗi (luật chờ duyệt) giữa soạn tay và sinh bằng AI.</div>
+  <table><thead><tr><th>Nguồn</th><th>Số luật</th><th>Đã duyệt</th><th>Chờ duyệt (lỗi)</th><th>TG trung bình (giây)</th><th>Mẫu có TG</th></tr></thead><tbody id="auth-tb"></tbody></table>
+  <div class="dim" style="margin-top:8px">* Thời gian = từ lúc tạo đến lúc duyệt. Luật thủ công được đánh dấu duyệt ngay → TG ≈ 0s. Duyệt sau = admin xem xét, sửa rồi mới duyệt.</div>
+</div>
+
+<!-- Panel 3: Độ chính xác quyết định -->
+<div class="box"><div class="row"><h2 style="flex:3">③ Độ chính xác quyết định truy cập</h2><button onclick="runDecisionAccuracy()">Chạy ca kiểm thử</button></div>
+  <div class="dim" style="margin-bottom:10px">Chạy các yêu cầu truy cập (nửa hợp lệ, nửa phải bị chặn) trên đường dẫn của dữ liệu đang nạp, so với kết quả mong đợi từ bộ luật chuẩn.</div>
+  <div id="da-kpi" class="hide" style="display:none;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px"></div>
+  <details id="da-det" class="hide"><summary style="cursor:pointer;color:var(--c)">Chi tiết các ca kiểm thử</summary>
+  <table style="margin-top:8px"><thead><tr><th>#</th><th>Mô tả</th><th>Mong đợi</th><th>Kết quả</th><th>Trạng thái</th><th>Luật áp</th></tr></thead><tbody id="da-detail"></tbody></table></details>
+  <div id="da-msg" class="dim"></div>
+</div>
+
+<!-- Panel 4: Hiệu năng MongoDB -->
+<div class="box"><div class="row"><h2 style="flex:3">④ Tốc độ truy vấn (ABAC Engine Benchmark)</h2>
+  <select id="bench-iter"><option value="500">500 truy vấn</option><option value="2000" selected>2 000 truy vấn</option><option value="5000">5 000 truy vấn</option><option value="10000">10 000 truy vấn</option></select>
+  <button onclick="runPerf()">Chạy benchmark</button></div>
+  <div class="dim" style="margin-bottom:10px">Đo thời gian phản hồi trung bình và p95 khi tắt và bật ABAC, với số luật và đường dẫn hiện tại.</div>
+  <div id="perf-res" class="hide">
+    <div id="perf-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px"></div>
+    <table><thead><tr><th>Chỉ số</th><th>Không có ABAC (baseline)</th><th>Có ABAC</th><th>Mức tăng</th></tr></thead><tbody id="perf-tb"></tbody></table>
+  </div>
+  <div id="perf-msg" class="dim"></div>
+</div>
+</section>
 </main>
 <button id="fab" class="needs" title="Trợ lý AI" onclick="$('#bot').classList.toggle('hide')">AI</button>
 <div id="bot" class="box needs hide"><div class="row" style="margin-bottom:8px"><b style="flex:3;color:var(--c)">Trợ lý AI</b><button style="flex:0 0 36px;padding:2px" onclick="$('#bot').classList.add('hide')">×</button></div>
@@ -143,7 +215,8 @@ async function gstat(){try{const s=await api('/state');$('#gstat').innerHTML=s.a
 async function saveKey(){const k=$('#gkey').value.trim();if(!k)return $('#gstat').innerHTML='<span class=wa>Dán API key trước.</span>';$('#gstat').textContent='Đang kiểm tra key…';
   try{await api('/gemini-key','POST',{key:k,model:$('#gmodel').value});$('#gkey').value='';gstat()}catch(e){$('#gstat').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
 async function delKey(){try{await api('/gemini-key','DELETE');gstat()}catch(e){$('#gstat').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
-async function ingest(b){$('#sinfo').textContent='Đang phân tích…';try{await api('/ingest','POST',{model:$('#model').value,...b});$('#sinfo').textContent='';for(const k in PICK)delete PICK[k];$('#app').classList.add('has');tab('over')}catch(e){$('#sinfo').textContent='Lỗi: '+e.message}}
+$('#smp').onchange=()=>{$('#smp-hint').textContent=$('#smp').value==='hospital'?'Dataset thực tế: 6 collection · bệnh nhân, hồ sơ bệnh án, đơn thuốc, lịch hẹn, nhân viên, thuốc — dùng được trực tiếp cho tab Benchmark':''};
+async function ingest(b){$('#sinfo').textContent='Đang phân tích…';try{await api('/ingest','POST',{model:$('#model').value,...b});$('#sinfo').textContent='';for(const k in PICK)delete PICK[k];resetBenchUI();$('#app').classList.add('has');tab('over')}catch(e){$('#sinfo').textContent='Lỗi: '+e.message}}
 function ingestFile(){const f=$('#file').files[0];if(!f)return $('#sinfo').textContent='Chọn một file trước.';const r=new FileReader();r.onload=()=>ingest({kind:'upload',content:r.result,filename:f.name});r.readAsText(f)}
 async function info(){const s=await api('/state');$('#sys').innerHTML=s.has?esc(s.system):'Chưa có dữ liệu.';
   $('#meta').innerHTML=s.has?`Mô hình: <b>${s.model}</b> · ${s.paths} đường dẫn · ${s.rules} luật (${s.pending} chờ duyệt) · AI Gemini: ${s.ai?'<span class=ok>bật</span>':'<span class=wa>chưa cấu hình, đang dùng luật heuristic</span>'}`:''}
@@ -267,4 +340,101 @@ async function expLoad(){try{const s=await api('/state'),f=$('#expfmt').value;$(
 async function expDl(){try{const f=$('#expfmt').value,t=await raw('/export?format='+f),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'}));a.download={json:'acl-policy.json',csv:'acl-policy.csv',js:'acl-engine.js'}[f];document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);$('#expmsg').textContent='Đã tải '+a.download}catch(e){$('#expmsg').textContent=e.message}}
 async function expCopy(){try{await navigator.clipboard.writeText($('#expprev').textContent);$('#expmsg').textContent='Đã sao chép'}catch{$('#expmsg').textContent='Trình duyệt không cho sao chép, hãy dùng nút Tải về'}}
 $('#p').onkeydown=e=>{if(e.key==='Enter')login()};if(TK)start();
+
+// ---- BENCHMARK ----
+async function checkBenchState(){
+  try{const s=await api('/state');
+    if(!s.has){$('#bench-state').innerHTML=`<span class=wa>⚠ Chưa có dữ liệu — vào tab <b>Nạp dữ liệu</b>, nạp dữ liệu của bạn rồi quay lại đây.</span>`;return}
+    const b=await api('/eval/bench-info'),M={hospital:'mẫu bệnh viện',custom:'do bạn nạp',auto:'tự sinh từ cấu trúc'};
+    $('#bench-state').innerHTML=`<span class=ok>✓ Dữ liệu đang nạp:</span> <b>${esc(s.name)}</b> · mô hình ${esc(s.model)} · ${s.paths} đường dẫn · ${s.rules} luật (${s.pending} chờ duyệt)<br>`+
+      `<span class=ok>✓ Bộ chuẩn:</span> ${esc(b.label)} <span class="tag">${M[b.mode]}</span> · ${b.gtCount} luật chuẩn · ${b.testCount} ca kiểm thử`+
+      (b.mode==='auto'?`<br><span class=wa>ⓘ Luật tham chiếu tự sinh nên chỉ mang tính tham khảo; nạp ground truth riêng để kết quả có giá trị đối chứng.</span>`:'');
+  }catch(e){$('#bench-state').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+async function gtUpload(){const f=$('#gtfile').files[0],m=$('#gt-msg');if(!f)return m.innerHTML='<span class=wa>Chọn file .json trước.</span>';
+  try{const c=JSON.parse(await f.text()),r=await api('/eval/ground-truth','POST',{content:c});
+    m.innerHTML=`<span class=ok>Đã nạp ${r.rules} luật chuẩn, ${r.tests} ca kiểm thử${r.testsGenerated?' (tự sinh từ luật)':''}.</span>`;resetBenchUI();checkBenchState()}catch(e){m.innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
+async function gtReset(){try{await api('/eval/ground-truth','DELETE');$('#gt-msg').innerHTML='<span class=ok>Đã về bộ chuẩn mặc định.</span>';resetBenchUI();checkBenchState()}catch(e){$('#gt-msg').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
+async function gtDownload(){try{const j=await api('/eval/ground-truth'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(j,null,2)],{type:'application/json'}));a.download='ground-truth.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}catch(e){$('#gt-msg').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
+function resetBenchUI(){$('#ra-summary').classList.add('hide');$('#da-kpi').style.display='none';$('#da-det').classList.add('hide');$('#perf-res').classList.add('hide');$('#ra-msg').textContent='';$('#da-msg').textContent='';$('#perf-msg').textContent=''}
+
+function kpiBox(val,label,cls=''){return`<div class="kpi ${cls}"><b>${esc(val)}</b><small>${esc(label)}</small></div>`}
+function compBar(pct,label){
+  const col=pct>=80?'var(--ok)':pct>=50?'var(--wa)':'var(--no)';
+  return`<div class="comp-bar"><span>${esc(label)}</span><div class="pct" style="color:${col}">${pct}%</div><div class="track"><div class="fill" style="width:${pct}%;background:${col}"></div></div></div>`}
+
+async function runRuleAccuracy(){
+  $('#ra-msg').textContent='Đang so sánh…';$('#ra-summary').classList.add('hide');
+  try{const r=await api('/eval/rule-accuracy');
+    const c=r.componentRates;
+    $('#ra-kpi').innerHTML=
+      kpiBox(r.exactMatch+'/'+r.totalGT,'Luật khớp hoàn toàn',r.exactMatchRate>=70?'ok':r.exactMatchRate>=40?'wa':'no')+
+      kpiBox(r.exactMatchRate+'%','Tỷ lệ đúng hoàn toàn',r.exactMatchRate>=70?'ok':r.exactMatchRate>=40?'wa':'no')+
+      kpiBox(r.totalApproved,'Luật đã duyệt','')+
+      kpiBox(r.totalGT,'Luật chuẩn (ground truth)','');
+    const CLABELS={subject:'Chủ thể',object:'Đối tượng',action:'Hành động',permission:'Quyền',condition:'Điều kiện'};
+    $('#ra-comp').innerHTML=Object.entries(c).map(([k,v])=>compBar(+v,CLABELS[k]||k)).join('');
+    $('#ra-detail').innerHTML=r.details.map((d,i)=>`<tr>
+      <td class="dim">${d.gtId}</td><td>${esc(d.reason)}<br><span class="dim">${esc(d.gtDesc||'')}</span></td><td class="dim">${esc(d.ruleId||'—')}</td>
+      <td>${d.components?.subject?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
+      <td>${d.components?.object?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
+      <td>${d.components?.action?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
+      <td>${d.components?.permission?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
+      <td>${d.components?.condition?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
+      <td><span class="${d.exact?'ok':'wa'}">${d.score}%</span></td></tr>`).join('');
+    $('#ra-summary').classList.remove('hide');$('#ra-msg').textContent='';
+  }catch(e){$('#ra-msg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+
+async function loadAuthoringStats(){
+  try{const r=await api('/eval/authoring');
+    const fmt=(s,n)=>s===null?n===0?'<span class="dim">—</span>':'<span class="dim">chưa đủ mẫu</span>':`${s}s`;
+    $('#auth-tb').innerHTML=
+      `<tr><td><span class="tag">manual</span> Thủ công</td><td>${r.manual.total}</td><td class=ok>${r.manual.approved}</td><td class="${r.manual.pending?'wa':'ok'}">${r.manual.pending}</td><td>${fmt(r.manual.avgApprovalSec,r.manual.samples)}</td><td class=dim>${r.manual.samples}</td></tr>`+
+      `<tr><td><span class="tag">ai</span> AI / Heuristic</td><td>${r.ai.total}</td><td class=ok>${r.ai.approved}</td><td class="${r.ai.pending?'wa':'ok'}">${r.ai.pending}</td><td>${fmt(r.ai.avgApprovalSec,r.ai.samples)}</td><td class=dim>${r.ai.samples}</td></tr>`+
+      `<tr style="border-top:2px solid var(--c)"><td class=dim colspan=2>Luật chuẩn (ground truth)</td><td class=ok colspan=2>${r.groundTruthCount}</td><td colspan=2 class=dim>theo bộ chuẩn đang dùng</td></tr>`;
+  }catch(e){$('#auth-tb').innerHTML=`<tr><td colspan=6 class=no>${esc(e.message)}</td></tr>`}}
+
+async function runDecisionAccuracy(){
+  $('#da-msg').textContent='Đang chạy ca kiểm thử…';$('#da-kpi').style.display='none';$('#da-det').classList.add('hide');
+  try{const r=await api('/eval/decision-accuracy');
+    const cls=r.accuracy>=90?'ok':r.accuracy>=70?'wa':'no';
+    $('#da-kpi').innerHTML=
+      kpiBox(r.accuracy+'%','Độ chính xác',cls)+
+      kpiBox(r.correct+'/'+r.total,'Quyết định đúng',cls)+
+      kpiBox(r.falseAllow,'Cho phép nhầm (false positive)',r.falseAllow===0?'ok':'no')+
+      kpiBox(r.falseDeny,'Từ chối nhầm (false negative)',r.falseDeny===0?'ok':'no');
+    $('#da-kpi').style.display='grid';
+    $('#da-detail').innerHTML=r.details.map(d=>`<tr>
+      <td class=dim>${d.id}</td><td>${esc(d.desc)}</td>
+      <td class="${d.expected?'ok':'no'}">${d.expected?'CHO PHÉP':'TỪ CHỐI'}</td>
+      <td class="${d.got?'ok':'no'}">${d.got?'CHO PHÉP':'TỪ CHỐI'}</td>
+      <td>${d.ok?'<span class=ok>[✓ ĐÚNG]</span>':'<span class=no>[✗ SAI]</span>'}</td>
+      <td class=dim>${esc(d.ruleId||'—')}</td></tr>`).join('');
+    $('#da-det').classList.remove('hide');$('#da-msg').textContent='';
+  }catch(e){$('#da-msg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+
+async function runPerf(){
+  $('#perf-msg').textContent='Đang chạy benchmark…';$('#perf-res').classList.add('hide');
+  try{const iters=parseInt($('#bench-iter').value)||2000;
+    const r=await api('/eval/performance','POST',{iterations:iters});
+    const ov=r.overheadPct,ovc=ov<=20?'ok':ov<=100?'wa':'no';
+    $('#perf-kpi').innerHTML=
+      kpiBox(r.abac.avgMsPerQuery+'ms','TG TB / truy vấn (có ABAC)','')+
+      kpiBox(r.abac.p95Ms+'ms','P95 (có ABAC)','')+
+      kpiBox(r.abac.qps.toLocaleString(),'Truy vấn/giây (có ABAC)','')+
+      kpiBox((ov>0?'+':'')+ov+'%','Mức tăng do ABAC',ovc);
+    const rows=[
+      ['Tổng thời gian (ms)', r.baseline.totalMs, r.abac.totalMs, ''],
+      ['TB mỗi truy vấn (ms)', r.baseline.avgMsPerQuery, r.abac.avgMsPerQuery, (ov>0?'+':'')+ov+'%'],
+      ['P50 (ms)', '—', r.abac.p50Ms, ''],
+      ['P95 (ms)', '—', r.abac.p95Ms, ''],
+      ['P99 (ms)', '—', r.abac.p99Ms, ''],
+      ['Truy vấn/giây', r.baseline.qps.toLocaleString(), r.abac.qps.toLocaleString(), ''],
+      ['Số luật', '0', r.ruleCount, ''],
+      ['Số đường dẫn', r.pathCount, r.pathCount, '']];
+    $('#perf-tb').innerHTML=rows.map(([n,b,a,d])=>`<tr><td>${esc(n)}</td><td class=dim>${esc(b)}</td><td class="${+String(a).replace(/,/g,'')>0?'ok':''}">${esc(a)}</td><td class="${d&&d.startsWith('+')?ovc:''}">${esc(d)}</td></tr>`).join('');
+    $('#perf-res').classList.remove('hide');$('#perf-msg').innerHTML=`<span class=dim>Số lần lặp: ${r.iterations} · ${r.ruleCount} luật đã duyệt</span>`;
+  }catch(e){$('#perf-msg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+
+// Tự nạp stats và kiểm tra trạng thái khi vào tab benchmark
+const _origTab=tab;window.tab=function(t){_origTab(t);if(t==='bench'){checkBenchState();loadAuthoringStats()}};
 </script></body></html>
