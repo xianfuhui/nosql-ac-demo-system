@@ -15,3 +15,6 @@ Cần Node >= 20.6. Không có GEMINI_API_KEY vẫn chạy, dùng luật heurist
   - Nạp dữ liệu mới sẽ tự bỏ ground truth cũ. Benchmark hiệu năng cũng lấy đường dẫn/chủ thể từ dữ liệu đang nạp.
 
 - **Quét database đủ 4 kiểu NoSQL** (Nạp dữ liệu → 3): MongoDB (document) · Redis (key-value) · **Cassandra (wide-column)** `cassandra://user:pass@host:9042/keyspace?dc=datacenter1` · **Neo4j (graph)** `neo4j://user:pass@host:7687/neo4j` (nhận cả `bolt://`, `neo4j+s://`). Cần `npm install` lại (thêm `cassandra-driver`, `neo4j-driver`). Mô hình dữ liệu tự gán theo loại DB.
+
+- **Cấu trúc source**: dữ liệu tách khỏi `server.js` vào thư mục `data/` — `data/samples.js` (4 mẫu keyvalue/wide/document/graph), `data/hospital.js` (dữ liệu Bệnh viện + 20 luật chuẩn `HOSPITAL_GT` + 30 ca kiểm thử `HOSPITAL_TESTS`). Muốn thêm dataset mẫu mới, tạo file mới trong `data/` rồi `require` ở `server.js`.
+- **Model & phiên bản API Gemini tự nhập**: ô model và ô phiên bản API (`v1beta`, `v1`, `v1alpha`…) đều gõ tự do được (có gợi ý sẵn). Mặc định `v1beta`; đặt mặc định qua `GEMINI_API_VERSION` trong `.env`. API: `POST /api/gemini-key {key, model, ver}`.
