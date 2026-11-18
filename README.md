@@ -1,32 +1,267 @@
-# NoSQL-ACL (theo NIST IR 8504)
-Chạy: `cp .env.example .env` (điền GEMINI_API_KEY, đổi mật khẩu) → `npm install` → `npm start` → http://localhost:3000
-Cần Node >= 20.6. Không có GEMINI_API_KEY vẫn chạy, dùng luật heuristic.
+# NoSQL-ACL — Quản lý phân quyền cho cơ sở dữ liệu NoSQL (theo NIST IR 8504)
 
-## Cập nhật mới nhất (Database hệ thống)
-- **Database hệ thống chuyển thành ô riêng, nằm ngay trên "Nạp dữ liệu", ghi rõ "Không bắt buộc"**. Có giải thích khi bỏ trống: không giữ bản sao dữ liệu gốc; chỉ lưu cấu trúc đã phân tích, luật, nhật ký vào `state.json`; kết nối nguồn (cách 3) chỉ ở bộ nhớ.
+Công cụ web giúp quản trị viên **tự động sinh, duyệt, kiểm tra và xuất bộ luật kiểm soát truy cập** cho 4 kiểu cơ sở dữ liệu NoSQL (key-value, wide-column, document, graph), dựa trên tài liệu **NIST IR 8504 – *Access Control on NoSQL Databases*** (Vincent C. Hu, 05/2024). AI (Gemini) hỗ trợ đề xuất luật; nếu không có API key, hệ thống dùng luật heuristic.
 
-## Cập nhật trước nữa
-- **Database riêng của hệ thống: nhập link ngay trên giao diện** (tab Nạp dữ liệu → "Database hệ thống"), đủ 4 kiểu NoSQL: `mongodb://…` · `redis://…` · `cassandra://…/keyspace` (keyspace phải có sẵn, bảng tự tạo) · `neo4j://…`/`bolt://…`. Bấm Kết nối để thử; thành công thì mọi nguồn nạp (mẫu, file, URL, quét database) được **sao chép vào DB này** rồi hệ thống **đọc lại từ đó** để phân tích; benchmark cũng chạy trên DB này. Link chỉ giữ trong bộ nhớ (có mật khẩu), mỗi lần khởi động lại cần nhập lại, hoặc đặt sẵn `MONGO_URI=mongodb://localhost:27017/nosql` trong `.env`. Đổi sang DB khác thì phải nạp lại dữ liệu. Chưa có DB hệ thống thì chạy như trước (dữ liệu chỉ ở bộ nhớ). Quét nguồn ngoài vẫn chỉ sao chép phần mẫu (vài bản ghi/bảng, tối đa 12 bảng). Bố cục lưu: Mongo `_datasets` + `ds_<tên>__<phần>`; Redis `acl:ds:<tên>:*`; Cassandra bảng `acl_meta`/`acl_rows`; Neo4j node `AclDataset`/`AclRow`.
-- **Tổng quan: ghi rõ các tầng** (theo Fig. 5, Sec. 3.1 của NIST IR 8504). Phía trên hình có bảng 5 tầng: Tầng 1 `Key-value database / Wide column database / Document database` · Tầng 2 `Tables / Column families / Collections` · Tầng 3 `Keys / Rows / Documents` · Tầng 4 `Values / Column ID / Fields` · Tầng 5 `Null / Values / Values`. Tầng của mô hình đang nạp **in đậm** (ví dụ nạp Document thì *Documents* đậm). Hình vẽ cũng có nhãn "Tầng n · …" ở bên trái từng hàng nút. Mô hình Graph không chia tầng nên chỉ hiện lời giải thích.
-- **Nhật ký chỉ ghi "Kiểm tra truy cập"** (§4.6). Đã bỏ ghi đăng nhập, nạp dữ liệu, sửa/duyệt luật, xuất file, đổi API key, chat, benchmark, bộ lọc injection. Mỗi dòng gồm: thời gian · chủ thể · đối tượng · hành động · môi trường · kết quả · luật quyết định. `state.json` cũ tự được dọn khi khởi động: chỉ giữ các dòng `check`, đổi sang cấu trúc mới. Lưu ý: tiêu chí "Ghi nhật ký" ở tab Đánh giá chỉ đạt khi đã có ít nhất một lượt kiểm tra.
-- **Bỏ tab "Bảo mật" (khung thử bộ lọc injection)**. Bộ lọc injection thật (`guard`, NIST IR 8504 §4.2) vẫn áp dụng cho mọi request tới `/api` như trước — chỉ bỏ trang demo cho người dùng tự nhập chuỗi để thử; tiêu chí "Bộ lọc chống NoSQL injection" ở tab Đánh giá vẫn chấm điểm bộ lọc này.
-- **Xuất phân quyền: sơ đồ cách dùng** trong hệ thống chính (xuất file → đặt vào dự án → middleware `acl.check()` → cho phép / 403) và 3 quy tắc quyết định (deny thắng grant · mặc định từ chối).
+## Mục lục
+1. [Giới thiệu hệ thống](#1-giới-thiệu-hệ-thống)
+2. [Vấn đề](#2-vấn-đề)
+3. [Mục tiêu](#3-mục-tiêu)
+4. [Sơ đồ chức năng](#4-sơ-đồ-chức-năng)
+5. [Dataset](#5-dataset)
+6. [Đánh giá](#6-đánh-giá)
+7. [Chụp màn hình](#7-chụp-màn-hình)
+8. [Kết luận và hướng phát triển](#8-kết-luận-và-hướng-phát-triển)
+9. [Cài đặt và chạy](#9-cài-đặt-và-chạy)
+10. [Cấu trúc thư mục & API](#10-cấu-trúc-thư-mục--api)
 
-## Cập nhật trước đó
-- **Nạp dữ liệu**: chọn 0–3 trước, ô nhập của cách đó mới hiện ra.
-- **Xuất phân quyền** (tab mới): tải bộ luật đã duyệt dưới dạng `acl-policy.json`, `acl-policy.csv` hoặc `acl-engine.js` (bộ luật + hàm `check`/`decide`, dùng được ngay trong hệ thống Node). API: `GET /api/export?format=json|csv|js`.
-- **Gemini API key**: ô nhập nằm ngay trên phần "Nạp dữ liệu" (tab Nạp dữ liệu). Dán key, chọn model, bấm "Lưu & kiểm tra" (server gọi thử Gemini trước khi nhận). Key chỉ lưu trong bộ nhớ máy chủ, không ghi vào `state.json`, giao diện chỉ hiện 4 ký tự cuối. Bấm "Xoá key" để quay về key trong `.env` (nếu có) hoặc luật heuristic. API: `POST /api/gemini-key {key, model}`, `DELETE /api/gemini-key`.
+---
 
-- **Tổng quan** chỉ hiển thị dữ liệu đang nạp (nếu là mẫu thì ghi rõ mẫu nào). **4 kiểu NoSQL** (trước đây là Hình 1–4): kiểu đang dùng nằm riêng một dòng, căn giữa; nút “…” (viền vàng) gộp phần còn lại, bấm để chọn nút cần hiển thị. Đã bỏ mục Hình 5–10.
-- **Đánh giá (trước là Benchmark) theo dữ liệu đang nạp**: bộ luật chuẩn + ca kiểm thử đi theo dữ liệu bạn nạp (trước đây luôn so với dữ liệu bệnh viện). 3 chế độ:
-  - `hospital`: nạp mẫu 🏥 Bệnh viện → dùng 20 luật + 30 ca soạn tay.
-  - `auto`: dữ liệu khác (file, URL, Mongo/Redis, mẫu khác) → luật tham chiếu tự sinh từ cấu trúc (admin/editor/user, chặn trường nhạy cảm, chặn xoá) + ca kiểm thử sinh từ luật đó. Chỉ mang tính tham khảo.
-  - `custom`: bạn tự nạp ground truth (tab Đánh giá → "Bộ chuẩn đánh giá"). API: `GET/POST/DELETE /api/eval/ground-truth`, `GET /api/eval/bench-info`.
-  - Nạp dữ liệu mới sẽ tự bỏ ground truth cũ. Benchmark hiệu năng cũng lấy đường dẫn/chủ thể từ dữ liệu đang nạp.
+## 1. Giới thiệu hệ thống
 
-- **Quét database đủ 4 kiểu NoSQL** (Nạp dữ liệu → 3): MongoDB (document) · Redis (key-value) · **Cassandra (wide-column)** `cassandra://user:pass@host:9042/keyspace?dc=datacenter1` · **Neo4j (graph)** `neo4j://user:pass@host:7687/neo4j` (nhận cả `bolt://`, `neo4j+s://`). Cần `npm install` lại (thêm `cassandra-driver`, `neo4j-driver`). Mô hình dữ liệu tự gán theo loại DB.
+NoSQL-ACL là ứng dụng **Node.js + Express** (giao diện web một trang) hoạt động như một *bộ quản lý chính sách truy cập* đứng cạnh hệ thống chính:
 
-- **Cấu trúc source**: dữ liệu tách khỏi `server.js` vào thư mục `data/` — `data/samples.js` (4 mẫu keyvalue/wide/document/graph), `data/hospital.js` (dữ liệu Bệnh viện + 20 luật chuẩn `HOSPITAL_GT` + 30 ca kiểm thử `HOSPITAL_TESTS`). Muốn thêm dataset mẫu mới, tạo file mới trong `data/` rồi `require` ở `server.js`.
-- **Model & phiên bản API Gemini tự nhập**: ô model và ô phiên bản API (`v1beta`, `v1`, `v1alpha`…) đều gõ tự do được (có gợi ý sẵn). Mặc định `v1beta`; đặt mặc định qua `GEMINI_API_VERSION` trong `.env`. API: `POST /api/gemini-key {key, model, ver}`.
+- **Nạp dữ liệu** từ dữ liệu mẫu, file JSON/CSV, URL, hoặc quét trực tiếp database thật (MongoDB, Redis, Cassandra, Neo4j).
+- **Phân tích cấu trúc** theo mô hình các tầng của NIST IR 8504 (Sec. 3.1): *database → bảng/collection → key/row/document → trường → giá trị*. Dữ liệu nhạy cảm được che (`••••`) khi hiển thị.
+- **Sinh luật** truy cập bằng Gemini (hoặc heuristic), quản trị viên **duyệt** từng luật trước khi có hiệu lực.
+- **Kiểm tra quyền** (`subject, object, action, ctx`) bằng bộ máy quyết định *deny-overrides, mặc định từ chối*, hỗ trợ điều kiện môi trường (ví dụ `class<=10`).
+- **Xuất phân quyền** ra `acl-policy.json`, `acl-policy.csv` hoặc `acl-engine.js` (middleware `acl.check()` dùng ngay trong hệ thống Node).
+- **Đánh giá** hệ thống: tuân thủ NIST, độ chính xác chuyển đổi luật, soạn luật thủ công vs AI, độ chính xác quyết định, chi phí hiệu năng.
+- **Database hệ thống** (không bắt buộc): lưu dữ liệu đã nạp vào một DB NoSQL riêng (`mongodb://`, `redis://`, `cassandra://`, `neo4j://`/`bolt://`).
 
-- **Đổi tên & sắp xếp lại tab**: "Đánh giá & bảo mật" → **🛡️ Bảo mật** (chỉ còn thử NoSQL injection, gắn nhãn NIST IR 8504 §4.2). "Benchmark" → **📊 Đánh giá**, thứ tự: Bộ chuẩn → ① Tuân thủ NIST IR 8504 (có nhãn `NIST IR 8504` và thẻ § từng tiêu chí, tự chạy khi mở tab) → ② Độ chính xác chuyển đổi luật → ③ Soạn luật thủ công vs AI → ④ Độ chính xác quyết định → ⑤ Tốc độ truy vấn.
+**Bảo mật tích hợp:** bộ lọc NoSQL injection (`guard`) cho mọi `/api`, token HMAC-SHA256 hết hạn 8 giờ, giới hạn 5 lần đăng nhập sai/10 phút, chống SSRF khi nạp URL, header bảo mật (CSP, X-Frame-Options…), nhật ký mọi lượt kiểm tra truy cập (§4.6), giới hạn body JSON 20 MB.
+
+## 2. Vấn đề
+
+- Các CSDL NoSQL **không có lược đồ cố định** và mỗi kiểu (key-value, wide-column, document, graph) có cấu trúc dữ liệu, cách truy cập và cơ chế phân quyền riêng, trong khi nhiều hệ thống chỉ có phân quyền thô (theo vai trò hoặc theo database).
+- Viết luật phân quyền **thủ công** cho từng collection/field tốn thời gian, dễ sót trường nhạy cảm (email, lương, thẻ, chẩn đoán…) và dễ sinh luật xung đột.
+- Không có công cụ chung để **đánh giá** một bộ luật có đủ độ phủ, có tuân thủ khuyến nghị của NIST IR 8504 và quyết định có đúng hay không.
+- NoSQL đối mặt với **injection** (`$ne`, `$where`, `$regex`…) mà lớp phân quyền thường bỏ qua.
+
+## 3. Mục tiêu
+
+1. Nhận diện và biểu diễn thống nhất cấu trúc của **4 kiểu NoSQL** theo NIST IR 8504 §3.1.
+2. **Tự động đề xuất luật** (AI/heuristic), có bước **duyệt của con người** trước khi áp dụng.
+3. Cài đặt bộ máy quyết định theo §3.2–3.3: phân quyền chi tiết đến trường (kế thừa từ cha xuống con), *deny-overrides*, *default deny*, điều kiện môi trường (§4.7).
+4. Ghi **nhật ký** kiểm tra truy cập (§4.6) và lọc **injection** (§4.2).
+5. **Xuất** bộ luật để áp dụng vào hệ thống thật.
+6. Cung cấp **bộ đánh giá định lượng** để chứng minh chất lượng luật và chi phí của lớp phân quyền.
+
+## 4. Sơ đồ chức năng
+
+```mermaid
+flowchart TD
+    A[Quản trị viên] -->|Đăng nhập| B[Giao diện web]
+
+    subgraph IN["1. Nạp dữ liệu"]
+        B --> C1[Dữ liệu mẫu]
+        B --> C2[File JSON / CSV]
+        B --> C3[URL]
+        B --> C4[Quét DB: Mongo · Redis · Cassandra · Neo4j]
+    end
+
+    C1 & C2 & C3 & C4 --> D[Phân tích cấu trúc<br/>detect / build theo NIST §3.1]
+    D -.->|tùy chọn| SYS[(Database hệ thống<br/>Mongo/Redis/Cassandra/Neo4j)]
+    D --> E[Tổng quan: 4 kiểu NoSQL & các tầng]
+
+    D --> F{Có Gemini key?}
+    F -->|Có| G[Gemini sinh luật]
+    F -->|Không| H[Heuristic sinh luật]
+    G & H --> I[Luật chờ duyệt]
+    B --> CH[Chat AI sửa luật]
+    CH --> I
+    I -->|Admin duyệt / sửa| J[Luật đã duyệt]
+
+    J --> K[Kiểm tra quyền<br/>deny-overrides · default deny]
+    K --> L[Nhật ký §4.6]
+    J --> M[Xuất acl-policy.json / .csv / acl-engine.js]
+    J --> N[Đánh giá]
+
+    subgraph EV["Tab Đánh giá"]
+        N --> N1[① Tuân thủ NIST IR 8504]
+        N --> N2[② Độ chính xác chuyển đổi luật]
+        N --> N3[③ Thủ công vs AI]
+        N --> N4[④ Độ chính xác quyết định]
+        N --> N5[⑤ Tốc độ truy vấn]
+    end
+
+    GUARD[guard: lọc NoSQL injection §4.2] -.-> B
+```
+
+| Tab | Chức năng |
+|---|---|
+| **Nạp dữ liệu** | Gemini API key, Database hệ thống (không bắt buộc), 4 cách nạp dữ liệu |
+| **Tổng quan** | Mô tả hệ thống, sơ đồ cấu trúc dữ liệu đang nạp |
+| **4 kiểu NoSQL** | Hình minh họa Key-value / Wide-column / Document / Graph và bảng 5 tầng |
+| **Luật** | Xem, thêm, sửa, xoá, duyệt luật; chat với AI để chỉnh luật |
+| **Kiểm tra truy cập** | Thử `subject – object – action – ctx`, trả về cho phép/từ chối và luật quyết định |
+| **Xuất phân quyền** | Tải JSON / CSV / `acl-engine.js` |
+| **Nhật ký** | Các lượt kiểm tra truy cập: lưu tối đa 500 lượt gần nhất, giao diện hiển thị 100 lượt mới nhất |
+| **Đánh giá** | 5 mục đánh giá + bộ chuẩn (ground truth) |
+
+**Quy tắc quyết định:** (1) có luật `deny` khớp → từ chối; (2) có luật `grant` khớp → cho phép; (3) không khớp luật nào → từ chối. Luật ở đối tượng cha áp dụng cho con (`orders/*` bao phủ `orders/*/card`).
+
+## 5. Dataset
+
+### 5.1 Dữ liệu mẫu cho 4 kiểu NoSQL (`data/samples.js`)
+
+| Mẫu | Mô hình | Nội dung |
+|---|---|---|
+| `keyvalue` | Key-value | `session`, `cache` (khóa như `sess:1`, `user:1:token`) |
+| `wide` | Wide-column | `profile` (name, dept, salary), `logs` (ip, ts) |
+| `document` | Document | `users` (name, email, role, salary), `orders` (id, total, card) |
+| `graph` | Graph | 6 nút (user, group, company, file, department, organization) và 5 cạnh (`in`, `works for`, `managed by`, `belongs to`, `can read`) |
+
+### 5.2 Dataset Bệnh viện Đa khoa (`data/hospital.js`)
+
+Dataset chính để đánh giá, mô hình **document**, gồm 6 collection:
+
+| Collection | Nội dung | Trường nhạy cảm tiêu biểu |
+|---|---|---|
+| `benhNhan` | Hồ sơ bệnh nhân | `cccd`, `sdt`, `diaChi`, `baoHiemYTe` |
+| `hoSoBenhAn` | Bệnh án | `chanDoan`, `ketQuaXetNghiem` |
+| `donthuoc` | Đơn thuốc | `thuoc[]` |
+| `lichHen` | Lịch hẹn | — |
+| `nhanVien` | Nhân viên y tế | `luong` |
+| `thuoc` | Danh mục thuốc | — |
+
+Kèm theo là **bộ chuẩn (ground truth)**: **15 luật** soạn tay (`HOSPITAL_GT`) và **30 ca kiểm thử** (`HOSPITAL_TESTS`), cũng có trong `ground-truth.json`.
+
+### 5.3 Dữ liệu của người dùng
+
+- File `.json` / `.csv`, URL công khai (chặn địa chỉ nội bộ), hoặc quét DB thật (tối đa 12 bảng, vài bản ghi mỗi bảng).
+- Bộ chuẩn riêng nạp ở tab *Đánh giá → Bộ chuẩn*:
+  ```json
+  {"rules":[{"subject":["role=user"],"object":"orders/*/card","actions":["read"],"permission":"deny"}],
+   "tests":[{"subject":["role=user"],"object":"orders/o1/card","action":"read","expected":false}]}
+  ```
+  `tests` có thể bỏ trống, hệ thống tự sinh từ luật.
+
+## 6. Đánh giá
+
+Tab **📊 Đánh giá** chạy trên *dữ liệu đang nạp*. Bộ chuẩn có 3 chế độ: `hospital` (15 luật + 30 ca soạn tay), `auto` (luật tham chiếu tự sinh: admin/editor/user, chặn trường nhạy cảm, chặn xoá — chỉ mang tính tham khảo), `custom` (người dùng tự nạp).
+
+| Mục | Đo gì | Cách tính |
+|---|---|---|
+| **① Tuân thủ NIST IR 8504** | Điểm theo 8 tiêu chí | Phân quyền chi tiết (độ phủ ≥ 80% đường dẫn) · bảo vệ trường nhạy cảm · không còn luật chờ duyệt · không xung đột grant/deny · chống injection (8 chuỗi tấn công mẫu) · ghi nhật ký · điều kiện môi trường · mặc định từ chối |
+| **② Độ chính xác chuyển đổi luật** | Luật AI/heuristic so với luật chuẩn | Khớp chính xác và theo từng thành phần: subject, object, action, permission, condition |
+| **③ Thủ công vs AI** | Số luật, tỷ lệ duyệt, thời gian duyệt trung bình | Từ `createdAt` → `approvedAt` theo nguồn luật |
+| **④ Độ chính xác quyết định** | Chạy các ca kiểm thử | Accuracy, *false allow* (cho phép nhầm — nghiêm trọng), *false deny* |
+| **⑤ Tốc độ truy vấn** | Chi phí của lớp ABAC | Cùng một danh sách yêu cầu chạy hai nhánh: chỉ truy vấn DB (baseline) và kiểm tra quyền + truy vấn DB, đổi thứ tự luân phiên; báo cáo avg, p50/p95/p99, QPS, % overhead. Không có DB thật thì chỉ đo hàm quyết định trong bộ nhớ |
+
+**Kết quả thử nghiệm** (dataset Bệnh viện, 12 luật **heuristic** do hệ thống tự sinh vì chưa dùng Gemini key, đã duyệt hết, chế độ đo trong bộ nhớ):
+
+| Tiêu chí | Kết quả |
+|---|---|
+| Điểm tuân thủ NIST IR 8504 (①) | **88/100** (7/8 tiêu chí đạt; chưa đạt "điều kiện môi trường" vì chưa có luật dùng điều kiện) |
+| Khớp chính xác luật chuẩn (②) | 1/15 luật (6,7%). Theo thành phần: object 100%, action 100%, permission 80%, condition 60%, subject 13,3% |
+| Độ chính xác quyết định (④) | 16/30 ca (53,3%): false allow 2, false deny 12 |
+| Chi phí kiểm tra quyền (⑤) | trung bình 0,0202 ms/lần, p95 0,0093 ms, khoảng 49.500 lượt/giây |
+
+Nhận xét: luật heuristic chỉ phân quyền theo `role=admin` và `role=user` nên lệch so với bộ chuẩn nghiệp vụ bệnh viện (bác sĩ, y tá, lễ tân…), dẫn tới nhiều *false deny*. Nên chạy lại với Gemini key và bộ luật đã chỉnh tay để so sánh. Chi phí của hàm kiểm tra quyền rất nhỏ (dưới 0,03 ms). Chưa đo so với truy vấn DB thật (cần nạp bằng cách 3 hoặc kết nối Database hệ thống).
+
+## 7. Chụp màn hình
+
+> Ảnh chụp với dataset Bệnh viện Đa khoa, lưu trong `docs/screenshots/`.
+
+| Nạp dữ liệu | Tổng quan |
+|---|---|
+| ![Nạp dữ liệu](docs/screenshots/01-nap-du-lieu.png) | ![Tổng quan](docs/screenshots/02-tong-quan.png) |
+
+| 4 kiểu NoSQL | Luật truy cập |
+|---|---|
+| ![4 kiểu NoSQL](docs/screenshots/03-bon-kieu-nosql.png) | ![Luật truy cập](docs/screenshots/04-luat.png) |
+
+| Kiểm tra quyền | Xuất phân quyền |
+|---|---|
+| ![Kiểm tra quyền](docs/screenshots/05-kiem-tra-quyen.png) | ![Xuất phân quyền](docs/screenshots/06-xuat-phan-quyen.png) |
+
+| Nhật ký | Đánh giá |
+|---|---|
+| ![Nhật ký](docs/screenshots/07-nhat-ky.png) | ![Đánh giá](docs/screenshots/08-danh-gia.png) |
+
+## 8. Kết luận và hướng phát triển
+
+### Kết luận
+
+- Hệ thống đã hiện thực được quy trình trọn vẹn: **nạp dữ liệu → phân tích cấu trúc → sinh luật (AI/heuristic) → duyệt → kiểm tra quyền → xuất → đánh giá**, hỗ trợ cả 4 kiểu NoSQL.
+- Bộ máy quyết định (*deny-overrides*, *default deny*, kế thừa cha–con, điều kiện môi trường) đơn giản, dễ giải thích và xuất được thành `acl-engine.js` dùng ngay.
+- Bước **duyệt luật bởi người** giúp tránh để AI tự quyết định quyền; bộ lọc injection và nhật ký đáp ứng thêm §4.2 và §4.6.
+- Bộ đánh giá định lượng (tuân thủ, độ chính xác luật, độ chính xác quyết định, overhead) cho phép so sánh các bộ luật khác nhau một cách khách quan.
+
+### Hạn chế
+
+- Quét DB ngoài chỉ lấy **mẫu nhỏ** (vài bản ghi, tối đa 12 bảng), nên luật sinh ra dựa trên cấu trúc nhìn thấy.
+- Bộ chuẩn tự sinh (`auto`) chỉ mang tính tham khảo; chuẩn xác phải dựa trên bộ chuẩn soạn tay.
+- Trạng thái lưu trong `state.json` (một quản trị viên, chưa có nhiều người dùng/vai trò quản trị).
+- Link database và Gemini API key chỉ giữ trong bộ nhớ, khởi động lại phải nhập lại.
+- Điều kiện môi trường mới hỗ trợ biểu thức so sánh đơn (`key<=10`).
+- Chưa kiểm thử tự động (unit test) cho bộ máy quyết định và bộ lọc.
+
+### Hướng phát triển
+
+1. Quản trị **nhiều người dùng, phân vai** (người soạn / người duyệt), lưu lịch sử thay đổi luật.
+2. **Tích hợp trực tiếp** (middleware/driver) để thực thi luật ở tầng truy vấn Mongo/Redis/Cassandra/Neo4j thay vì chỉ xuất file.
+3. Hỗ trợ điều kiện phức tạp hơn (thời gian, địa chỉ IP, thuộc tính đối tượng; kết hợp AND/OR) và phát hiện luật chồng chéo/thừa.
+4. Quét sâu hơn (lấy mẫu theo thống kê, nhận diện trường nhạy cảm bằng AI) và phát hiện **thay đổi lược đồ** để đề xuất luật mới.
+5. Cải thiện chất lượng AI: thử nhiều mô hình, đo ② theo từng mô hình, thêm few-shot từ bộ chuẩn.
+6. Bổ sung unit test, CI, đóng gói Docker; mở rộng bộ dataset (tài chính, giáo dục…) và bộ chuẩn.
+7. Mở rộng nhật ký: cảnh báo bất thường, xuất log sang SIEM.
+
+---
+
+## 9. Cài đặt và chạy
+
+Yêu cầu: **Node.js ≥ 20.6** (`npm start` chạy `node --env-file=.env server.js`, nên cần file `.env`).
+
+```bash
+cp .env.example .env     # điền GEMINI_API_KEY (tùy chọn), ĐỔI ADMIN_PASS và APP_SECRET
+npm install
+npm start                # http://localhost:3000
+```
+
+| Biến `.env` | Ý nghĩa |
+|---|---|
+| `ADMIN_USER`, `ADMIN_PASS` | Tài khoản quản trị (mặc định `admin`; **phải đổi mật khẩu**) |
+| `APP_SECRET` | Chuỗi ký token (đặt chuỗi ngẫu nhiên dài) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_API_VERSION` | Tùy chọn (mặc định model `gemini-2.0-flash`, API `v1beta`); cũng có thể nhập key trên giao diện (chỉ lưu trong bộ nhớ). Không có key vẫn chạy với luật heuristic |
+| `MONGO_URI` | Tùy chọn: database hệ thống đặt sẵn (mẫu: `mongodb://localhost:27017/nosql`); cũng có thể nhập link `redis://`, `cassandra://`, `neo4j://` trên giao diện |
+| `PORT` | Cổng (mặc định 3000) |
+
+**Database hệ thống (không bắt buộc):** nhập link ở *Nạp dữ liệu → Database hệ thống* (`mongodb://…`, `redis://…`, `cassandra://…/keyspace` — keyspace phải có sẵn, `neo4j://…`/`bolt://…`). Khi kết nối, mọi nguồn nạp được sao chép vào DB này, hệ thống đọc lại từ đó để phân tích và benchmark. Bỏ trống thì không giữ bản sao dữ liệu gốc, chỉ lưu cấu trúc, luật, nhật ký vào `state.json`.
+
+## 10. Cấu trúc thư mục & API
+
+```
+nosql-acl/
+├── server.js          # API, bộ máy quyết định, guard, đánh giá
+├── data/
+│   ├── samples.js     # 4 mẫu keyvalue / wide / document / graph
+│   ├── hospital.js    # dataset Bệnh viện + 15 luật chuẩn + 30 ca kiểm thử
+│   └── store.js       # database hệ thống (Mongo/Redis/Cassandra/Neo4j)
+├── public/index.html  # giao diện
+├── ground-truth.json  # bộ chuẩn mẫu: 15 luật + 30 ca (tải về chỉnh rồi nạp lại)
+├── docs/screenshots/  # 8 ảnh chụp màn hình dùng ở mục 7
+├── state.json         # tự tạo khi chạy: cấu trúc, luật, nhật ký (không đưa lên git)
+├── .env.example
+├── package.json       # express, mongodb, redis, cassandra-driver, neo4j-driver
+└── README.md
+```
+
+| API (cần đăng nhập, trừ `login`) | Mô tả |
+|---|---|
+| `POST /api/login` | Đăng nhập, trả token |
+| `POST /api/ingest` | Nạp dữ liệu (`upload`, `url`, `sample`, `mongo`, `redis`, `cassandra`, `neo4j`) |
+| `GET /api/state`, `GET /api/graph` | Trạng thái, đồ thị cấu trúc |
+| `GET/POST/PATCH/DELETE /api/rules`, `POST /api/rules/approve-all` | Quản lý luật |
+| `POST /api/chat` | Chat AI chỉnh luật |
+| `POST /api/check`, `GET /api/audit` | Kiểm tra quyền; nhật ký (100 lượt mới nhất) |
+| `GET /api/export?format=json\|csv\|js` | Xuất phân quyền |
+| `GET /api/evaluate` | Điểm tuân thủ NIST IR 8504 |
+| `GET /api/eval/bench-info`, `…/rule-accuracy`, `…/authoring`, `…/decision-accuracy` | Đánh giá ②③④ |
+| `POST /api/eval/performance` | Đánh giá ⑤ |
+| `GET/POST/DELETE /api/eval/ground-truth` | Bộ chuẩn |
+| `POST/DELETE /api/gemini-key`, `POST/DELETE /api/system-db` | Cấu hình key và database hệ thống |
+
+*Cập nhật README (18/11/2026):* đồng bộ với code hiện tại (nhật ký hiển thị 100 lượt, biến `.env`, cấu trúc thư mục, danh sách thư viện) và với ảnh chụp màn hình tab Đánh giá (88/100, 1/15 luật khớp, 16/30 ca đúng).
+
+*Tham chiếu:* Vincent C. Hu, **NIST IR 8504 – Access Control on NoSQL Databases**, 05/2024.
