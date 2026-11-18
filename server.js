@@ -16,6 +16,8 @@ const dirty = (v, d = 0) => d > 8 || (typeof v === 'string' ? BAD.test(v)
   : Array.isArray(v) ? v.some(x => dirty(x, d + 1))
   : v && typeof v === 'object' ? Object.entries(v).some(([k, x]) => k[0] === '$' || k === '__proto__' || dirty(x, d + 1)) : false);
 const PAYLOADS = ['{"$ne":""}', '{"$gt":""}', '{"$where":"sleep(5000)"}', "' || '1'=='1", "admin'--", "'; return true; var x='", '<script>alert(1)</script>', '{"$regex":".*"}'];
+const PAYLOAD_DESC = ['Toán tử $ne (khác) để vượt qua bước so sánh mật khẩu', 'Toán tử $gt (lớn hơn) so với chuỗi rỗng, luôn đúng', 'Toán tử $where chạy mã JavaScript (sleep 5 giây)',
+  "Tiêm điều kiện luôn đúng ' || '1'=='1", "Chú thích -- cắt bỏ phần kiểm tra mật khẩu", "Chèn lệnh return true vào truy vấn", 'Chèn mã script (XSS)', 'Toán tử $regex khớp mọi giá trị'];
 const guard = (req, res, next) => {
   const { content, message, key, ...rest } = req.body || {};   // content = data to analyse, message = chat text for AI
   if (dirty(rest) || dirty(req.query)) { log('injection_blocked', req.path); return res.status(400).json({ error: 'Blocked: NoSQL injection pattern' }); }
@@ -259,21 +261,22 @@ app.post('/api/check', auth, (req, res) => {
   const d = decide(s, String(object), String(action || 'read'), ctx && typeof ctx === 'object' ? ctx : {});
   log('check', `${s}|${object}|${action}=${d.allow}`); res.json(d);
 });
-app.get('/api/injection-test', auth, (q, res) => res.json(PAYLOADS.map(p => { let j; try { j = JSON.parse(p); } catch {} return { payload: p, blocked: dirty(p) || dirty(j) }; })));
+app.get('/api/injection-test', auth, (q, res) => res.json(PAYLOADS.map((p, i) => { let j; try { j = JSON.parse(p); } catch {} return { payload: p, desc: PAYLOAD_DESC[i] || '', blocked: dirty(p) || dirty(j) }; })));
 app.get('/api/evaluate', auth, (q, res) => {
   const P = S.ds?.paths || [], A = S.rules.filter(r => r.status === 'approved'), cov = P.filter(p => A.some(r => glob(r.object, p) && r.object !== '*')).length;
   const sens = P.filter(p => SENS.test(p)), prot = sens.filter(p => A.some(r => r.permission === 'deny' && glob(r.object, p)));
   const conf = A.filter(a => a.permission === 'grant' && A.some(b => b.permission === 'deny' && b.object === a.object && a.subject.join() === b.subject.join() && a.actions.some(x => b.actions.includes(x)))).length;
   const inj = PAYLOADS.every(p => dirty(p));
+  const pend = S.rules.filter(r => r.status === 'pending').length;
   const C = [
-    { name: 'Fine-grained coverage', ref: '4.1', ok: P.length && cov / P.length >= .8, detail: `${cov}/${P.length} paths have an approved rule` },
-    { name: 'Sensitive fields protected', ref: '4.2', ok: prot.length === sens.length, detail: `${prot.length}/${sens.length} sensitive fields have a deny rule` },
-    { name: 'No pending rules', ref: '3.3', ok: !S.rules.some(r => r.status === 'pending'), detail: `${S.rules.filter(r => r.status === 'pending').length} rules waiting for approval` },
-    { name: 'No conflicting grant/deny', ref: '3.2', ok: !conf, detail: `${conf} conflicts` },
-    { name: 'NoSQL injection guard', ref: '4.2', ok: inj, detail: inj ? `${PAYLOADS.length}/${PAYLOADS.length} payloads blocked` : 'some payloads passed' },
-    { name: 'Audit logging', ref: '4.6', ok: S.audit.length > 0, detail: `${S.audit.length} events recorded` },
-    { name: 'Environment conditions', ref: '4.7', ok: A.some(r => r.condition), detail: 'at least one rule uses a condition (e.g. class<=10)' },
-    { name: 'Default deny', ref: '3.3', ok: true, detail: 'requests without a matching grant are denied' }];
+    { name: 'Phân quyền chi tiết (độ phủ luật)', ref: '4.1', ok: P.length && cov / P.length >= .8, detail: `${cov}/${P.length} đường dẫn có luật đã duyệt (cần từ 80%)` },
+    { name: 'Bảo vệ trường nhạy cảm', ref: '4.2', ok: prot.length === sens.length, detail: `${prot.length}/${sens.length} trường nhạy cảm đã có luật từ chối` },
+    { name: 'Không còn luật chờ duyệt', ref: '3.3', ok: !pend, detail: `${pend} luật đang chờ duyệt` },
+    { name: 'Không có luật cho phép / từ chối xung đột', ref: '3.2', ok: !conf, detail: `${conf} xung đột` },
+    { name: 'Bộ lọc chống NoSQL injection', ref: '4.2', ok: inj, detail: inj ? `chặn được ${PAYLOADS.length}/${PAYLOADS.length} chuỗi tấn công mẫu` : 'có chuỗi tấn công lọt qua bộ lọc' },
+    { name: 'Ghi nhật ký kiểm toán', ref: '4.6', ok: S.audit.length > 0, detail: `đã ghi ${S.audit.length} sự kiện` },
+    { name: 'Điều kiện môi trường', ref: '4.7', ok: A.some(r => r.condition), detail: 'có ít nhất một luật dùng điều kiện (ví dụ class<=10)' },
+    { name: 'Mặc định từ chối', ref: '3.3', ok: true, detail: 'yêu cầu không khớp luật cho phép nào đều bị từ chối' }];
   res.json({ score: Math.round(100 * C.filter(c => c.ok).length / C.length), checks: C });
 });
 // ---------- export policy for the main system ----------
