@@ -236,7 +236,7 @@ tr.pending td{background:#fef3c780}
   <div class="dim" style="margin-bottom:10px">Nếu dữ liệu nạp bằng <b>Quét database</b> (MongoDB / Redis / Cassandra / Neo4j), hệ thống chạy <b>truy vấn thật</b> tới database đó: một lượt không kiểm tra quyền, một lượt có kiểm tra ABAC trước, rồi so sánh. Dữ liệu nạp kiểu khác chỉ đo được hàm kiểm tra quyền trong bộ nhớ.</div>
   <div id="perf-res" class="hide">
     <div id="perf-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px"></div>
-    <table><thead><tr><th>Chỉ số</th><th>Truy vấn DB thật, không ABAC</th><th>Có ABAC</th><th>ABAC tốn thêm</th></tr></thead><tbody id="perf-tb"></tbody></table>
+    <table><thead><tr><th>Chỉ số</th><th>Truy vấn DB thật, không ABAC</th><th>Có ABAC (kiểm tra + truy vấn)</th><th>ABAC tốn thêm</th></tr></thead><tbody id="perf-tb"></tbody></table>
   </div>
   <div id="perf-msg" class="dim"></div>
 </div>
@@ -494,7 +494,7 @@ async function runPerf(){
     $('#perf-kpi').innerHTML=db?
       kpiBox(b.avgMsPerQuery+'ms','TB / truy vấn DB thật (không ABAC)','')+
       kpiBox(r.decideAvgMs+'ms','TB / lần kiểm tra quyền ABAC','')+
-      kpiBox((ov>0?'+':'')+ov+'%','ABAC tốn thêm so với 1 truy vấn thật',ovc)+
+      kpiBox((ov>0?'+':'')+ov+'%','ABAC tốn thêm (đo trực tiếp, cùng số truy vấn)',ovc)+
       kpiBox(r.allowRate+'%','Yêu cầu được cho phép','')
       :kpiBox(a.avgMsPerQuery+'ms','TB / lần kiểm tra quyền (trong bộ nhớ)','')+kpiBox(a.p95Ms+'ms','P95','')+kpiBox(a.qps.toLocaleString(),'Lượt kiểm tra / giây','');
     const f=x=>x===undefined||x===null?'—':typeof x==='number'?x.toLocaleString():x;
@@ -503,12 +503,14 @@ async function runPerf(){
       ['TB mỗi yêu cầu (ms)',b.avgMsPerQuery,a.avgMsPerQuery,''],
       ['P50 (ms)',b.p50Ms,a.p50Ms,''],['P95 (ms)',b.p95Ms,a.p95Ms,''],['P99 (ms)',b.p99Ms,a.p99Ms,''],
       ['Yêu cầu/giây',b.qps,a.qps,''],
-      ['Chỉ riêng kiểm tra ABAC: TB (ms)','—',r.decideAvgMs,(ov>0?'+':'')+ov+'%'],
+      ['Chỉ riêng kiểm tra ABAC: TB (ms)','—',r.decideAvgMs,(r.decideOverheadPct>0?'+':'')+r.decideOverheadPct+'%'],
+      ['Thực tế (từ chối thì bỏ qua truy vấn): TB (ms)','—',r.enforced.avgMsPerQuery,''],
+      ['Tỉ lệ yêu cầu được cho phép','—',r.allowRate+'%',''],
       ['Số luật đã duyệt','—',r.ruleCount,''],['Số đối tượng được truy vấn',r.pathCount,r.pathCount,'']]
       :[['TB mỗi lần kiểm tra (ms)','—',a.avgMsPerQuery,''],['P50 (ms)','—',a.p50Ms,''],['P95 (ms)','—',a.p95Ms,''],['P99 (ms)','—',a.p99Ms,''],['Lượt kiểm tra/giây','—',a.qps,''],['Số luật đã duyệt','—',r.ruleCount,'']];
     $('#perf-tb').innerHTML=rows.map(([n,x,y,d])=>`<tr><td>${esc(n)}</td><td class=dim>${esc(f(x))}</td><td>${esc(f(y))}</td><td class="${d?ovc:''}">${esc(d)}</td></tr>`).join('');
     $('#perf-res').classList.remove('hide');
-    $('#perf-msg').innerHTML=db?`<span class=ok>Đã chạy truy vấn thật tới ${esc(r.db.kind)} (${esc(r.db.name)})</span> · <span class=dim>${r.iterations} yêu cầu mỗi lượt · lượt có ABAC chỉ truy vấn DB khi được cho phép (${r.allowRate}%)${r.errors?` · <span class=no>${r.errors} truy vấn lỗi</span>`:''}</span>`
+    $('#perf-msg').innerHTML=db?`<span class=ok>Đã chạy truy vấn thật tới ${esc(r.db.kind)} (${esc(r.db.name)})</span> · <span class=dim>${r.iterations} yêu cầu mỗi lượt · hai nhánh cùng truy vấn DB cho mọi yêu cầu, chạy xen kẽ (công bằng); dòng "Thực tế" mô phỏng việc bỏ qua truy vấn khi bị từ chối (${r.allowRate}% được phép)${r.errors?` · <span class=no>${r.errors} truy vấn lỗi</span>`:''}</span>`
       :`<span class=wa>ⓘ Dữ liệu này không nạp từ database nên chỉ đo được hàm kiểm tra quyền trong bộ nhớ, không có truy vấn thật để so sánh. Muốn đo thật: Nạp dữ liệu → 3 · Quét database.</span>`;
   }catch(e){$('#perf-msg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
 

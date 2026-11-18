@@ -534,19 +534,29 @@ app.post('/api/eval/performance', auth, async (req, res) => {
     let errors = 0;
     const run = async () => { try { await c.q(reqs[0].o); } catch {} };   // làm nóng kết nối
     await run();
-    // Chạy xen kẽ từng yêu cầu: (a) truy vấn thẳng vào DB, (b) kiểm tra ABAC rồi chỉ truy vấn khi được phép -> hai bên cùng điều kiện (cache, kết nối)
-    const base = [], full = [], dec = []; let allowed = 0, baseTot = 0, abacTot = 0; const t0 = nowMs();
+    // Hai nhánh chạy CÔNG BẰNG: cùng một danh sách yêu cầu, cả hai nhánh đều TRUY VẤN DB cho mọi yêu cầu.
+    //  (a) baseline: chỉ truy vấn DB.
+    //  (b) có ABAC: kiểm tra quyền (decide) rồi truy vấn DB (luôn chạy, kể cả khi bị từ chối) -> chênh lệch (b)-(a) chính là chi phí của ABAC.
+    // Thứ tự (a)/(b) đổi luân phiên theo từng yêu cầu để tránh lệch do cache/kết nối nóng.
+    // "enforced" = kịch bản thực tế (từ chối thì KHÔNG truy vấn DB), tính từ chính các số đo ở nhánh (b), không chạy thêm truy vấn.
+    const base = [], full = [], dec = [], enf = []; let allowed = 0, baseTot = 0, abacTot = 0, enfTot = 0; const t0 = nowMs();
+    const doBase = async o => { const a = nowMs(); try { await c.q(o); } catch { errors++; } const d = nowMs() - a; base.push(d); baseTot += d; };
+    const doAbac = async (s, o) => {
+      const a = nowMs(), d = decide(s, o.includes('/') ? o : o + '/_item', 'read', {}), b = nowMs();   // đối tượng cụ thể (collection/_item) để khớp luật dạng "collection/*"
+      try { await c.q(o); } catch { errors++; }
+      const e = nowMs(), dt = b - a, tot = e - a; dec.push(dt); full.push(tot); abacTot += tot;
+      if (d.allow) allowed++; const en = d.allow ? tot : dt; enf.push(en); enfTot += en;
+    };
     for (let i = 0; i < want && nowMs() - t0 < BUDGET; i++) {
-      const o = reqs[i].o; let a = nowMs(); try { await c.q(o); } catch { errors++; } let b = nowMs(); base.push(b - a); baseTot += b - a;
-      a = nowMs(); const d = decide(reqs[i].s, o, 'read', {}); b = nowMs(); dec.push(b - a);
-      if (d.allow) { allowed++; try { await c.q(o); } catch { errors++; } } full.push(nowMs() - a); abacTot += full[full.length - 1];
+      const { s, o } = reqs[i];
+      if (i % 2 === 0) { await doBase(o); await doAbac(s, o); } else { await doAbac(s, o); await doBase(o); }
     }
-    const n = base.length, decTot = dec.reduce((x, y) => x + y, 0), baseAvg = baseTot / n;
-    res.json({ mode: 'db', db: { kind: C.kind, name: C.name, system: !!C.sys }, iterations: n, ruleCount: approved.length, pathCount: targets.length, errors,
+    const n = base.length, decTot = dec.reduce((x, y) => x + y, 0), baseAvg = baseTot / n, stat = (t, tot) => ({ totalMs: +tot.toFixed(2), avgMsPerQuery: +(tot / n).toFixed(4), p50Ms: pctl(t, 50), p95Ms: pctl(t, 95), p99Ms: pctl(t, 99), qps: Math.round(n / (tot / 1000)) });
+    res.json({ mode: 'db', fair: true, db: { kind: C.kind, name: C.name, system: !!C.sys }, iterations: n, ruleCount: approved.length, pathCount: targets.length, errors,
       allowRate: +(allowed / n * 100).toFixed(1), decideAvgMs: +(decTot / n).toFixed(4), decideP95Ms: pctl(dec, 95),
-      baseline: { totalMs: +baseTot.toFixed(2), avgMsPerQuery: +baseAvg.toFixed(4), p50Ms: pctl(base, 50), p95Ms: pctl(base, 95), p99Ms: pctl(base, 99), qps: Math.round(n / (baseTot / 1000)) },
-      abac: { totalMs: +abacTot.toFixed(2), avgMsPerQuery: +(abacTot / n).toFixed(4), p50Ms: pctl(full, 50), p95Ms: pctl(full, 95), p99Ms: pctl(full, 99), qps: Math.round(n / (abacTot / 1000)) },
-      overheadPct: +(decTot / n / baseAvg * 100).toFixed(2) });
+      baseline: stat(base, baseTot), abac: stat(full, abacTot), enforced: stat(enf, enfTot),
+      overheadPct: +((abacTot - baseTot) / baseTot * 100).toFixed(2),          // chi phí ABAC đo trực tiếp (cùng số truy vấn DB)
+      decideOverheadPct: +(decTot / n / baseAvg * 100).toFixed(2) });          // riêng hàm kiểm tra / 1 truy vấn
   } catch (e) { res.status(500).json({ error: String(e.message).slice(0, 200) }); }
   finally { await c.close().catch(() => {}); }
 });

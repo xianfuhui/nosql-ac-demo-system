@@ -1,4 +1,4 @@
-// Dataset Bệnh viện Đa khoa: dữ liệu + 20 luật chuẩn + 30 ca kiểm thử (benchmark)
+// Dataset Bệnh viện Đa khoa: dữ liệu + 15 luật chuẩn + 30 ca kiểm thử (benchmark)
 // ---------- Dataset thực tế: Bệnh viện Đa khoa (dùng trong mục "Nạp dữ liệu → Dữ liệu mẫu") ----------
 const HOSPITAL_DATA = {
   benhNhan: [
@@ -28,62 +28,69 @@ const HOSPITAL_DATA = {
   ]
 };
 
-// 20 luật chuẩn soạn tay cho dataset bệnh viện (chỉ dùng khi nạp mẫu Bệnh viện)
+// 15 luật chuẩn (ground truth) - khớp với bộ luật AI đã sinh & được duyệt cho dataset bệnh viện
+// Lưu ý: tên vai trò, đường dẫn đối tượng (có "/*") và điều kiện phải giống hệt luật AI thì mới tính là khớp khi so sánh.
 const HOSPITAL_GT = [
-  { id:'gt01', subject:['role=admin'], object:'*', actions:['*'], permission:'grant', reason:'Admin toàn quyền hệ thống', condition:'' },
-  { id:'gt02', subject:['role=bacsi'], object:'hoSoBenhAn', actions:['read','write'], permission:'grant', reason:'Bác sĩ đọc/ghi hồ sơ bệnh án', condition:'' },
-  { id:'gt03', subject:['role=bacsi'], object:'donthuoc', actions:['read','write'], permission:'grant', reason:'Bác sĩ kê đơn thuốc', condition:'' },
-  { id:'gt04', subject:['role=bacsi'], object:'benhNhan', actions:['read'], permission:'grant', reason:'Bác sĩ xem thông tin bệnh nhân', condition:'' },
-  { id:'gt05', subject:['role=bacsi'], object:'lichHen', actions:['read','write'], permission:'grant', reason:'Bác sĩ quản lý lịch hẹn', condition:'' },
-  { id:'gt06', subject:['role=yta'], object:'benhNhan', actions:['read'], permission:'grant', reason:'Y tá xem thông tin bệnh nhân', condition:'' },
-  { id:'gt07', subject:['role=yta'], object:'lichHen', actions:['read','write'], permission:'grant', reason:'Y tá quản lý lịch hẹn', condition:'' },
-  { id:'gt08', subject:['role=yta'], object:'hoSoBenhAn', actions:['read'], permission:'grant', reason:'Y tá chỉ được đọc hồ sơ', condition:'' },
-  { id:'gt09', subject:['role=yta'], object:'hoSoBenhAn/*/chanDoan', actions:['read','write'], permission:'deny', reason:'Y tá không được xem/sửa chẩn đoán', condition:'' },
-  { id:'gt10', subject:['role=benhnhan'], object:'benhNhan/*/tenHo', actions:['read'], permission:'grant', reason:'Bệnh nhân xem tên của mình', condition:'' },
-  { id:'gt11', subject:['role=benhnhan'], object:'lichHen', actions:['read'], permission:'grant', reason:'Bệnh nhân xem lịch hẹn', condition:'' },
-  { id:'gt12', subject:['role=benhnhan'], object:'hoSoBenhAn', actions:['read','write','delete'], permission:'deny', reason:'Bệnh nhân không được vào hồ sơ bệnh án', condition:'' },
-  { id:'gt13', subject:['role=duoc'], object:'donthuoc', actions:['read'], permission:'grant', reason:'Dược sĩ xem đơn thuốc', condition:'' },
-  { id:'gt14', subject:['role=duoc'], object:'thuoc', actions:['read','write'], permission:'grant', reason:'Dược sĩ quản lý kho thuốc', condition:'' },
-  { id:'gt15', subject:['role=user'], object:'benhNhan/*/cccd', actions:['read','write'], permission:'deny', reason:'Bảo vệ CCCD (thông tin nhạy cảm)', condition:'' },
-  { id:'gt16', subject:['role=user'], object:'benhNhan/*/sdt', actions:['read'], permission:'deny', reason:'Bảo vệ SĐT (thông tin nhạy cảm)', condition:'' },
-  { id:'gt17', subject:['role=admin'], object:'audit', actions:['read'], permission:'grant', reason:'Chỉ admin xem nhật ký kiểm toán', condition:'' },
-  { id:'gt18', subject:['role=bacsi'], object:'hoSoBenhAn/*/ketQuaXetNghiem', actions:['read','write'], permission:'grant', reason:'Bác sĩ cập nhật kết quả xét nghiệm', condition:'' },
-  { id:'gt19', subject:['role=yta'], object:'*', actions:['delete'], permission:'deny', reason:'Y tá không được xóa bất kỳ dữ liệu nào', condition:'' },
-  { id:'gt20', subject:['role=admin'], object:'nhanVien/*/luong', actions:['read','write'], permission:'grant', reason:'Chỉ admin quản lý thông tin lương', condition:'' }
+  { id:'gt01', subject:['role=admin'], object:'*', actions:['*'], permission:'grant', reason:'Quản trị viên hệ thống có toàn quyền quản lý kỹ thuật và cấu hình tổng thể theo tiêu chuẩn kiểm soát truy cập.', condition:'' },
+  { id:'gt02', subject:['role=admin'], object:'hoSoBenhAn/*/ketQuaXetNghiem', actions:['read'], permission:'deny', reason:'Tuân thủ nguyên tắc quyền riêng tư NIST IR 8504, quản trị viên không được phép xem chi tiết kết quả y tế nhạy cảm của bệnh nhân.', condition:'' },
+  { id:'gt03', subject:['role=bacSi'], object:'hoSoBenhAn/*', actions:['read','write'], permission:'grant', reason:'Bác sĩ được phép xem và chẩn đoán, cập nhật hồ sơ bệnh án thuộc khoa chuyên môn của mình.', condition:'user.khoa == resource.khoa' },
+  { id:'gt04', subject:['role=bacSi'], object:'donthuoc/*', actions:['read','write'], permission:'grant', reason:'Bác sĩ có quyền kê đơn thuốc và chỉnh sửa đơn thuốc do chính mình tạo ra.', condition:'user.id == resource.bacSiKe' },
+  { id:'gt05', subject:['role=bacSi'], object:'benhNhan/*', actions:['read'], permission:'grant', reason:'Bác sĩ cần truy cập thông tin hành chính và nhóm máu của bệnh nhân để phục vụ công tác khám chữa bệnh.', condition:'' },
+  { id:'gt06', subject:['role=duocSi'], object:'donthuoc/*', actions:['read'], permission:'grant', reason:'Dược sĩ có quyền xem thông tin đơn thuốc để thực hiện cấp phát thuốc cho bệnh nhân.', condition:'' },
+  { id:'gt07', subject:['role=duocSi'], object:'thuoc/*', actions:['read','write'], permission:'grant', reason:'Dược sĩ quản lý kho thuốc, có quyền cập nhật giá, số lượng tồn kho và hạn sử dụng của thuốc.', condition:'' },
+  { id:'gt08', subject:['role=benhNhan'], object:'benhNhan/*', actions:['read'], permission:'grant', reason:'Bệnh nhân chỉ có quyền xem thông tin cá nhân của chính mình.', condition:'user.id == resource._id' },
+  { id:'gt09', subject:['role=benhNhan'], object:'hoSoBenhAn/*', actions:['read'], permission:'grant', reason:'Bệnh nhân có quyền truy cập xem lịch sử khám và hồ sơ bệnh án cá nhân.', condition:'user.id == resource.benhNhanId' },
+  { id:'gt10', subject:['role=benhNhan'], object:'lichHen/*', actions:['read','write'], permission:'grant', reason:'Bệnh nhân có quyền đặt, xem và hủy lịch hẹn khám của cá nhân mình.', condition:'user.id == resource.benhNhanId' },
+  { id:'gt11', subject:['role=nhanVienLieuLienLienLac'], object:'lichHen/*', actions:['read','write'], permission:'grant', reason:'Nhân viên tiếp tân/tiếp nhận có quyền quản lý, điều phối lịch hẹn khám bệnh của toàn hệ thống.', condition:'' },
+  { id:'gt12', subject:['role=nhanVienLieuLienLienLac'], object:'benhNhan/*', actions:['read','write'], permission:'grant', reason:'Nhân viên tiếp tân có quyền tiếp nhận và cập nhật thông tin hành chính của bệnh nhân mới.', condition:'' },
+  { id:'gt13', subject:['role=nhanVien'], object:'nhanVien/*/luong', actions:['read'], permission:'deny', reason:'Đảm bảo tính bảo mật tiền lương, nhân viên không thể xem lương của đồng nghiệp.', condition:'user.id != resource._id' },
+  { id:'gt14', subject:['role=quanLyNhanSu'], object:'nhanVien/*', actions:['read','write'], permission:'grant', reason:'Quản lý nhân sự có quyền truy cập và cập nhật hồ sơ, lương và bằng cấp của nhân viên.', condition:'' },
+  { id:'gt15', subject:['role=*'], object:'hoSoBenhAn/*', actions:['delete'], permission:'deny', reason:'Ngăn chặn việc xóa hồ sơ bệnh án tuân thủ quy định lưu trữ dữ liệu y tế quốc gia.', condition:'' }
 ];
 
-// 30 ca kiểm thử cho dataset bệnh viện (chỉ dùng khi nạp mẫu Bệnh viện)
+// 30 ca kiểm thử cho 15 luật trên (chỉ dùng khi nạp mẫu Bệnh viện)
+// - object dùng đường dẫn cụ thể (vd hoSoBenhAn/hs001) vì luật có dạng "hoSoBenhAn/*"
+// - ctx cung cấp giá trị cho các điều kiện (user.* / resource.*)
+const K_OK  = { 'user.khoa':'Nội khoa', 'resource.khoa':'Nội khoa' };
+const K_BAD = { 'user.khoa':'Nội khoa', 'resource.khoa':'Hô hấp' };
 const HOSPITAL_TESTS = [
-  {id:'tc01',subject:['role=admin'],object:'benhNhan',action:'read',ctx:{},expected:true,desc:'Admin đọc bảng bệnh nhân'},
-  {id:'tc02',subject:['role=admin'],object:'audit',action:'read',ctx:{},expected:true,desc:'Admin xem nhật ký kiểm toán'},
-  {id:'tc03',subject:['role=bacsi'],object:'hoSoBenhAn',action:'read',ctx:{},expected:true,desc:'Bác sĩ đọc hồ sơ bệnh án'},
-  {id:'tc04',subject:['role=bacsi'],object:'hoSoBenhAn',action:'write',ctx:{},expected:true,desc:'Bác sĩ ghi hồ sơ bệnh án'},
-  {id:'tc05',subject:['role=bacsi'],object:'donthuoc',action:'write',ctx:{},expected:true,desc:'Bác sĩ kê đơn thuốc'},
-  {id:'tc06',subject:['role=bacsi'],object:'lichHen',action:'read',ctx:{},expected:true,desc:'Bác sĩ xem lịch hẹn'},
-  {id:'tc07',subject:['role=yta'],object:'benhNhan',action:'read',ctx:{},expected:true,desc:'Y tá đọc thông tin bệnh nhân'},
-  {id:'tc08',subject:['role=yta'],object:'lichHen',action:'write',ctx:{},expected:true,desc:'Y tá cập nhật lịch hẹn'},
-  {id:'tc09',subject:['role=yta'],object:'hoSoBenhAn',action:'read',ctx:{},expected:true,desc:'Y tá đọc hồ sơ bệnh án'},
-  {id:'tc10',subject:['role=benhnhan'],object:'benhNhan/bn001/tenHo',action:'read',ctx:{},expected:true,desc:'Bệnh nhân đọc tên của mình'},
-  {id:'tc11',subject:['role=benhnhan'],object:'lichHen',action:'read',ctx:{},expected:true,desc:'Bệnh nhân xem lịch hẹn'},
-  {id:'tc12',subject:['role=duoc'],object:'donthuoc',action:'read',ctx:{},expected:true,desc:'Dược sĩ xem đơn thuốc'},
-  {id:'tc13',subject:['role=duoc'],object:'thuoc',action:'write',ctx:{},expected:true,desc:'Dược sĩ cập nhật kho thuốc'},
-  {id:'tc14',subject:['role=bacsi'],object:'hoSoBenhAn/hs001/ketQuaXetNghiem',action:'read',ctx:{},expected:true,desc:'Bác sĩ đọc kết quả xét nghiệm'},
-  {id:'tc15',subject:['role=admin'],object:'nhanVien/bs001/luong',action:'read',ctx:{},expected:true,desc:'Admin xem mức lương nhân viên'},
-  {id:'tc16',subject:['role=yta'],object:'hoSoBenhAn/hs001/chanDoan',action:'read',ctx:{},expected:false,desc:'Y tá đọc chẩn đoán (phải bị chặn)'},
-  {id:'tc17',subject:['role=yta'],object:'hoSoBenhAn/hs001/chanDoan',action:'write',ctx:{},expected:false,desc:'Y tá sửa chẩn đoán (phải bị chặn)'},
-  {id:'tc18',subject:['role=benhnhan'],object:'hoSoBenhAn',action:'read',ctx:{},expected:false,desc:'Bệnh nhân đọc hồ sơ bệnh án (phải bị chặn)'},
-  {id:'tc19',subject:['role=benhnhan'],object:'hoSoBenhAn',action:'write',ctx:{},expected:false,desc:'Bệnh nhân sửa hồ sơ bệnh án (phải bị chặn)'},
-  {id:'tc20',subject:['role=user'],object:'benhNhan/bn001/cccd',action:'read',ctx:{},expected:false,desc:'Người dùng đọc CCCD (phải bị chặn)'},
-  {id:'tc21',subject:['role=user'],object:'benhNhan/bn001/sdt',action:'read',ctx:{},expected:false,desc:'Người dùng đọc số điện thoại (phải bị chặn)'},
-  {id:'tc22',subject:['role=yta'],object:'benhNhan',action:'delete',ctx:{},expected:false,desc:'Y tá xóa bệnh nhân (phải bị chặn)'},
-  {id:'tc23',subject:['role=duoc'],object:'hoSoBenhAn',action:'read',ctx:{},expected:false,desc:'Dược sĩ đọc hồ sơ bệnh án (không có quyền)'},
-  {id:'tc24',subject:['role=duoc'],object:'donthuoc',action:'delete',ctx:{},expected:false,desc:'Dược sĩ xóa đơn thuốc (không có quyền)'},
-  {id:'tc25',subject:['role=benhnhan'],object:'audit',action:'read',ctx:{},expected:false,desc:'Bệnh nhân xem nhật ký (phải bị chặn)'},
-  {id:'tc26',subject:['role=benhnhan'],object:'nhanVien/bs001/luong',action:'read',ctx:{},expected:false,desc:'Bệnh nhân xem lương nhân viên (phải bị chặn)'},
-  {id:'tc27',subject:['role=bacsi'],object:'audit',action:'delete',ctx:{},expected:false,desc:'Bác sĩ xóa nhật ký (không có quyền)'},
-  {id:'tc28',subject:['role=duoc'],object:'benhNhan',action:'write',ctx:{},expected:false,desc:'Dược sĩ sửa thông tin bệnh nhân (không có quyền)'},
-  {id:'tc29',subject:['role=user'],object:'nhanVien/bs001/bangCap',action:'read',ctx:{},expected:false,desc:'Người dùng đọc bằng cấp nhân viên (không có quyền)'},
-  {id:'tc30',subject:['role=benhnhan'],object:'thuoc',action:'write',ctx:{},expected:false,desc:'Bệnh nhân sửa kho thuốc (không có quyền)'}
+  // admin (gt01, gt02)
+  {id:'tc01',subject:['role=admin'],object:'benhNhan/bn001',action:'read',ctx:{},expected:true,desc:'Admin đọc thông tin bệnh nhân'},
+  {id:'tc02',subject:['role=admin'],object:'thuoc/th001',action:'delete',ctx:{},expected:true,desc:'Admin xóa thuốc (toàn quyền)'},
+  {id:'tc03',subject:['role=admin'],object:'hoSoBenhAn/hs001/ketQuaXetNghiem',action:'read',ctx:{},expected:false,desc:'Admin đọc kết quả xét nghiệm (phải bị chặn)'},
+  {id:'tc04',subject:['role=admin'],object:'hoSoBenhAn/hs001/ketQuaXetNghiem',action:'write',ctx:{},expected:true,desc:'Admin ghi kết quả xét nghiệm (deny chỉ áp dụng cho read)'},
+  {id:'tc05',subject:['role=admin'],object:'hoSoBenhAn/hs001/chanDoan',action:'read',ctx:{},expected:true,desc:'Admin đọc chẩn đoán (không thuộc luật chặn)'},
+  // bác sĩ (gt03, gt04, gt05)
+  {id:'tc06',subject:['role=bacSi'],object:'hoSoBenhAn/hs001',action:'read',ctx:K_OK,expected:true,desc:'Bác sĩ đọc hồ sơ cùng khoa'},
+  {id:'tc07',subject:['role=bacSi'],object:'hoSoBenhAn/hs001',action:'write',ctx:K_OK,expected:true,desc:'Bác sĩ ghi hồ sơ cùng khoa'},
+  {id:'tc08',subject:['role=bacSi'],object:'hoSoBenhAn/hs002',action:'read',ctx:K_BAD,expected:false,desc:'Bác sĩ đọc hồ sơ khác khoa (phải bị chặn)'},
+  {id:'tc09',subject:['role=bacSi'],object:'donthuoc/dt001',action:'write',ctx:{'user.id':'bs001','resource.bacSiKe':'bs001'},expected:true,desc:'Bác sĩ sửa đơn thuốc do mình kê'},
+  {id:'tc10',subject:['role=bacSi'],object:'donthuoc/dt002',action:'write',ctx:{'user.id':'bs001','resource.bacSiKe':'bs002'},expected:false,desc:'Bác sĩ sửa đơn thuốc của bác sĩ khác (phải bị chặn)'},
+  {id:'tc11',subject:['role=bacSi'],object:'benhNhan/bn001',action:'read',ctx:{},expected:true,desc:'Bác sĩ xem thông tin bệnh nhân'},
+  {id:'tc12',subject:['role=bacSi'],object:'benhNhan/bn001',action:'write',ctx:{},expected:false,desc:'Bác sĩ sửa thông tin hành chính bệnh nhân (không có quyền)'},
+  // dược sĩ (gt06, gt07)
+  {id:'tc13',subject:['role=duocSi'],object:'donthuoc/dt001',action:'read',ctx:{},expected:true,desc:'Dược sĩ xem đơn thuốc'},
+  {id:'tc14',subject:['role=duocSi'],object:'donthuoc/dt001',action:'write',ctx:{},expected:false,desc:'Dược sĩ sửa đơn thuốc (không có quyền)'},
+  {id:'tc15',subject:['role=duocSi'],object:'thuoc/th001',action:'write',ctx:{},expected:true,desc:'Dược sĩ cập nhật kho thuốc'},
+  {id:'tc16',subject:['role=duocSi'],object:'hoSoBenhAn/hs001',action:'read',ctx:{},expected:false,desc:'Dược sĩ đọc hồ sơ bệnh án (không có quyền)'},
+  // bệnh nhân (gt08, gt09, gt10)
+  {id:'tc17',subject:['role=benhNhan'],object:'benhNhan/bn001',action:'read',ctx:{'user.id':'bn001','resource._id':'bn001'},expected:true,desc:'Bệnh nhân đọc thông tin của chính mình'},
+  {id:'tc18',subject:['role=benhNhan'],object:'benhNhan/bn002',action:'read',ctx:{'user.id':'bn001','resource._id':'bn002'},expected:false,desc:'Bệnh nhân đọc thông tin người khác (phải bị chặn)'},
+  {id:'tc19',subject:['role=benhNhan'],object:'hoSoBenhAn/hs001',action:'read',ctx:{'user.id':'bn001','resource.benhNhanId':'bn001'},expected:true,desc:'Bệnh nhân đọc hồ sơ bệnh án của mình'},
+  {id:'tc20',subject:['role=benhNhan'],object:'hoSoBenhAn/hs001',action:'write',ctx:{'user.id':'bn001','resource.benhNhanId':'bn001'},expected:false,desc:'Bệnh nhân sửa hồ sơ bệnh án (phải bị chặn)'},
+  {id:'tc21',subject:['role=benhNhan'],object:'lichHen/lh001',action:'write',ctx:{'user.id':'bn001','resource.benhNhanId':'bn001'},expected:true,desc:'Bệnh nhân đặt/hủy lịch hẹn của mình'},
+  {id:'tc22',subject:['role=benhNhan'],object:'lichHen/lh002',action:'read',ctx:{'user.id':'bn001','resource.benhNhanId':'bn003'},expected:false,desc:'Bệnh nhân xem lịch hẹn của người khác (phải bị chặn)'},
+  // nhân viên tiếp nhận (gt11, gt12)
+  {id:'tc23',subject:['role=nhanVienLieuLienLienLac'],object:'lichHen/lh001',action:'write',ctx:{},expected:true,desc:'Nhân viên tiếp nhận điều phối lịch hẹn'},
+  {id:'tc24',subject:['role=nhanVienLieuLienLienLac'],object:'benhNhan/bn001',action:'write',ctx:{},expected:true,desc:'Nhân viên tiếp nhận cập nhật thông tin hành chính bệnh nhân'},
+  {id:'tc25',subject:['role=nhanVienLieuLienLienLac'],object:'hoSoBenhAn/hs001',action:'read',ctx:{},expected:false,desc:'Nhân viên tiếp nhận đọc hồ sơ bệnh án (không có quyền)'},
+  // nhân viên / quản lý nhân sự (gt13, gt14)
+  {id:'tc26',subject:['role=nhanVien'],object:'nhanVien/bs002/luong',action:'read',ctx:{'user.id':'bs001','resource._id':'bs002'},expected:false,desc:'Nhân viên xem lương đồng nghiệp (phải bị chặn)'},
+  {id:'tc27',subject:['role=quanLyNhanSu'],object:'nhanVien/bs001/luong',action:'write',ctx:{},expected:true,desc:'Quản lý nhân sự cập nhật lương nhân viên'},
+  {id:'tc28',subject:['role=quanLyNhanSu'],object:'thuoc/th001',action:'read',ctx:{},expected:false,desc:'Quản lý nhân sự đọc kho thuốc (không có quyền)'},
+  // cấm xóa hồ sơ bệnh án với mọi vai trò (gt15, role=*)
+  {id:'tc29',subject:['role=bacSi','role=*'],object:'hoSoBenhAn/hs001',action:'delete',ctx:K_OK,expected:false,desc:'Bác sĩ xóa hồ sơ bệnh án (phải bị chặn)'},
+  {id:'tc30',subject:['role=admin','role=*'],object:'hoSoBenhAn/hs001',action:'delete',ctx:{},expected:false,desc:'Admin xóa hồ sơ bệnh án (deny thắng grant toàn quyền)'}
 ];
 
 module.exports = { HOSPITAL_DATA, HOSPITAL_GT, HOSPITAL_TESTS };
