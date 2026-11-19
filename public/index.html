@@ -144,12 +144,12 @@ tr.pending td{background:#fef3c780}
 <section id="rules" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Luật truy cập</h2><button class="g" onclick="approveAll()">Duyệt tất cả</button></div>
   <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
   <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
-  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div></section>
+  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div></section>
 
 
 
 <section id="check" class="tab hide"><div class="box"><h2>Kiểm tra quyền truy cập</h2>
-  <div class="row"><input id="cs" placeholder="Chủ thể: role=user"><input id="co" placeholder="Đối tượng: users/*/salary"><select id="ca"><option>read</option><option>write</option><option>delete</option></select><input id="cx" placeholder='Môi trường JSON: {"class":5}'><button onclick="check()">Kiểm tra</button></div>
+  <div class="row"><input id="cs" placeholder="Chủ thể: role=user"><input id="co" placeholder="Đối tượng: users/*/salary"><select id="ca"><option>read</option><option>write</option><option>delete</option></select><input id="cx" placeholder='Môi trường JSON: {"class":5,"shift":"day"}'><button onclick="check()">Kiểm tra</button></div>
   <h2 id="cres" style="margin-top:14px"></h2><div id="cby" class="dim"></div>
   <div class="dim" style="margin-top:10px">Mỗi lượt kiểm tra được ghi vào tab 🧾 Nhật ký.</div></div></section>
 <section id="exp" class="tab hide"><div class="box"><h2>Xuất tập phân quyền</h2>

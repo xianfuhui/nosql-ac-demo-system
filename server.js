@@ -119,8 +119,10 @@ function clean(o, src) {   // validate untrusted rule input (AI or admin)
   return dirty(r) ? null : r;
 }
 const glob = (pat, p) => pat === '*' || new RegExp('^' + pat.split('*').map(x => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/.*)?$').test(p); // children inherit (Sec. 3.2.2)
-const cond = (c, ctx) => { if (!c) return true; const m = c.match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
-  const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+const cond = (c, ctx) => { if (!c) return true;   // nhiều điều kiện: && (và), || (hoặc); && ưu tiên trước ||. Ví dụ: class<=10 && shift==day || role==admin
+  const one = t => { const m = t.trim().match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
+    const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+  return c.split('||').some(g => g.split('&&').every(one)); };
 const decideWith = (rules, s, o, a, ctx = {}) => {   // deny-overrides, default deny; rules = bộ luật bất kỳ (dùng cho cả luật chuẩn khi benchmark)
   const m = rules.filter(r => r.subject.every(x => s.includes(x)) && glob(r.object, o) && (r.actions.includes('*') || r.actions.includes(a)) && cond(r.condition, ctx));
   const d = m.find(r => r.permission === 'deny'), g = m.find(r => r.permission === 'grant');
@@ -311,8 +313,10 @@ app.get('/api/evaluate', auth, (q, res) => {
 // ---------- export policy for the main system ----------
 function makeEngine(POLICY) {   // self-contained: also embedded (via toString) in the exported acl-engine.js
   const glob = (pat, p) => pat === '*' || new RegExp('^' + pat.split('*').map(x => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/.*)?$').test(p);
-  const cond = (c, ctx) => { if (!c) return true; const m = c.match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
-    const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+  const cond = (c, ctx) => { if (!c) return true;   // nhiều điều kiện: && (và), || (hoặc)
+    const one = t => { const m = t.trim().match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
+      const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+    return c.split('||').some(g => g.split('&&').every(one)); };
   const decide = (subject, object, action, ctx = {}) => {   // deny-overrides, default deny
     const s = Array.isArray(subject) ? subject : String(subject || '').split(',').map(x => x.trim()).filter(Boolean);
     const m = POLICY.rules.filter(r => r.subject.every(x => s.includes(x)) && glob(r.object, String(object)) && (r.actions.includes('*') || r.actions.includes(action)) && cond(r.condition, ctx || {}));
