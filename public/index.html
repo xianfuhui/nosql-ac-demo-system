@@ -498,13 +498,14 @@ async function runPerf(){
       kpiBox(r.allowRate+'%','Yêu cầu được cho phép','')
       :kpiBox(a.avgMsPerQuery+'ms','TB / lần kiểm tra quyền (trong bộ nhớ)','')+kpiBox(a.p95Ms+'ms','P95','')+kpiBox(a.qps.toLocaleString(),'Lượt kiểm tra / giây','');
     const f=x=>x===undefined||x===null?'—':typeof x==='number'?x.toLocaleString():x;
+    const dp=(x,y,inv)=>{if(!x||y===undefined||y===null)return '';const v=(inv?(x-y):(y-x))/x*100;return (v>0?'+':'')+v.toFixed(2)+'%'};
     const rows=db?[
-      ['Tổng thời gian (ms)',b.totalMs,a.totalMs,''],
-      ['TB mỗi yêu cầu (ms)',b.avgMsPerQuery,a.avgMsPerQuery,''],
-      ['P50 (ms)',b.p50Ms,a.p50Ms,''],['P95 (ms)',b.p95Ms,a.p95Ms,''],['P99 (ms)',b.p99Ms,a.p99Ms,''],
-      ['Yêu cầu/giây',b.qps,a.qps,''],
+      ['Tổng thời gian (ms)',b.totalMs,a.totalMs,dp(b.totalMs,a.totalMs)],
+      ['TB mỗi yêu cầu (ms)',b.avgMsPerQuery,a.avgMsPerQuery,dp(b.avgMsPerQuery,a.avgMsPerQuery)],
+      ['P50 (ms)',b.p50Ms,a.p50Ms,dp(b.p50Ms,a.p50Ms)],['P95 (ms)',b.p95Ms,a.p95Ms,dp(b.p95Ms,a.p95Ms)],['P99 (ms)',b.p99Ms,a.p99Ms,dp(b.p99Ms,a.p99Ms)],
+      ['Yêu cầu/giây (giảm = tốn thêm)',b.qps,a.qps,dp(b.qps,a.qps,true)],
       ['Chỉ riêng kiểm tra ABAC: TB (ms)','—',r.decideAvgMs,(r.decideOverheadPct>0?'+':'')+r.decideOverheadPct+'%'],
-      ['Thực tế (từ chối thì bỏ qua truy vấn): TB (ms)','—',r.enforced.avgMsPerQuery,''],
+      ['Thực tế (từ chối thì bỏ qua truy vấn): TB (ms)','—',r.enforced.avgMsPerQuery,dp(b.avgMsPerQuery,r.enforced.avgMsPerQuery)],
       ['Tỉ lệ yêu cầu được cho phép','—',r.allowRate+'%',''],
       ['Số luật đã duyệt','—',r.ruleCount,''],['Số đối tượng được truy vấn',r.pathCount,r.pathCount,'']]
       :[['TB mỗi lần kiểm tra (ms)','—',a.avgMsPerQuery,''],['P50 (ms)','—',a.p50Ms,''],['P95 (ms)','—',a.p95Ms,''],['P99 (ms)','—',a.p99Ms,''],['Lượt kiểm tra/giây','—',a.qps,''],['Số luật đã duyệt','—',r.ruleCount,'']];
