@@ -294,7 +294,7 @@ app.post('/api/rules/import', auth, (req, res) => {   // {filename, b64} cho .xl
       o.subject = (o.subject || '').replace(/;/g, ','); o.actions = (o.actions || '').replace(/;/g, ',');   // CSV xuất từ hệ thống dùng dấu ; giữa các giá trị
       const x = clean(o, 'manual');
       if (!x) return errors.push({ row: i + 2, error: 'Luật không hợp lệ (cần object, actions ∈ read|write|delete|*, permission ∈ grant|deny, không chứa mẫu nguy hiểm).' });
-      x.status = 'approved'; x.approvedAt = now; added.push(x);
+      x.status = 'approved'; x.approvedAt = new Date().toISOString(); added.push(x);
     });
     S.rules.push(...added); save();
     res.json({ ok: true, imported: added.length, errors, rules: added.map(r => ({ id: r.id, object: r.object, permission: r.permission })) });
