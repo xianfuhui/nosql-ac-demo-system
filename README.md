@@ -151,22 +151,23 @@ Tab **📊 Đánh giá** chạy trên *dữ liệu đang nạp*. Bộ chuẩn c�
 | **④ Độ chính xác quyết định** | Chạy các ca kiểm thử | Accuracy, *false allow* (cho phép nhầm — nghiêm trọng), *false deny* |
 | **⑤ Tốc độ truy vấn** | Chi phí của lớp ABAC | Cùng một danh sách yêu cầu chạy hai nhánh: chỉ truy vấn DB (baseline) và kiểm tra quyền + truy vấn DB, đổi thứ tự luân phiên; báo cáo avg, p50/p95/p99, QPS, % overhead. Không có DB thật thì chỉ đo hàm quyết định trong bộ nhớ |
 
-**Kết quả thử nghiệm** (dataset Olist, 19 luật **heuristic** do hệ thống tự sinh vì chưa dùng Gemini key, đã duyệt hết, chế độ đo trong bộ nhớ):
+**Kết quả thử nghiệm** (dataset Olist; 34 luật đã duyệt gồm 19 luật **heuristic** tự sinh vì chưa dùng Gemini key và 15 luật **thủ công nhập từ `data/luat-mau-olist.xlsx`**; chế độ đo trong bộ nhớ):
 
 | Tiêu chí | Kết quả |
 |---|---|
-| Điểm tuân thủ NIST IR 8504 (①) | **86/100** (6/7 tiêu chí đạt; chưa đạt "điều kiện môi trường" vì chưa có luật dùng điều kiện) |
-| Khớp chính xác luật chuẩn (②) | 1/15 luật (6,7%). Theo thành phần: object 100%, action 100%, permission 80%, condition 66,7%, subject 13,3% |
-| Độ chính xác quyết định (④) | 17/30 ca (56,7%): false allow 2, false deny 11 |
-| Chi phí kiểm tra quyền (⑤) | trung bình khoảng 0,010 ms/lần, p95 khoảng 0,013 ms, khoảng 98.000 lượt/giây (thay đổi nhẹ giữa các lần chạy) |
+| Điểm tuân thủ NIST IR 8504 (①) | **100/100** (7/7 tiêu chí đạt) |
+| Khớp chính xác luật chuẩn (②) | 15/15 luật (100%); cả 5 thành phần subject, object, action, permission, condition đều 100% |
+| Soạn luật thủ công vs AI (③) | thủ công 15 luật, duyệt ngay (0 s); heuristic 19 luật, duyệt trung bình khoảng 7 s |
+| Độ chính xác quyết định (④) | 30/30 ca (100%): false allow 0, false deny 0 |
+| Chi phí kiểm tra quyền (⑤) | trung bình khoảng 0,007 ms/lần, p95 khoảng 0,011 ms, khoảng 143.000 lượt/giây (thay đổi nhẹ giữa các lần chạy) |
 
-Nhận xét: luật heuristic chỉ phân quyền theo `role=admin` và `role=user` nên lệch so với bộ chuẩn nghiệp vụ Olist (seller, customer, support, finance, analyst…), dẫn tới nhiều *false deny*. Nên chạy lại với Gemini key và bộ luật đã chỉnh tay để so sánh; bộ luật chuẩn nạp từ `data/luat-mau-olist.xlsx` đạt 30/30 ca. Chi phí của hàm kiểm tra quyền rất nhỏ (dưới 0,03 ms). Chưa đo so với truy vấn DB thật (cần nạp bằng cách 3 hoặc kết nối Database hệ thống).
+Nhận xét: nếu chỉ dùng luật heuristic (chỉ phân quyền theo `role=admin` và `role=user`) thì kết quả thấp hơn nhiều (86/100, 1/15 luật khớp, 17/30 ca đúng) do lệch nghiệp vụ Olist (seller, customer, support, finance, analyst…). Sau khi nhập bộ luật thủ công, các luật heuristic không gây xung đột vì chỉ áp dụng cho `role=user` và `role=admin`, còn *deny-overrides* giữ nguyên các luật chặn. Chi phí của hàm kiểm tra quyền rất nhỏ (dưới 0,03 ms). Chưa đo so với truy vấn DB thật (cần nạp bằng cách 3 hoặc kết nối Database hệ thống).
 
 ---
 
 ## 7. Chụp màn hình
 
-> Ảnh chụp với dataset Olist Brazilian E-Commerce, lưu trong `docs/screenshots/`.
+> Ảnh chụp với dataset Olist Brazilian E-Commerce, sau khi nhập 15 luật mẫu từ Excel, lưu trong `docs/screenshots/`.
 
 | Nạp dữ liệu | Tổng quan |
 |---|---|
@@ -267,7 +268,7 @@ nosql-acl/
 | `GET/POST/DELETE /api/eval/ground-truth` | Bộ chuẩn |
 | `POST/DELETE /api/gemini-key`, `POST/DELETE /api/system-db` | Cấu hình key và database hệ thống |
 
-*Cập nhật README (20/11/2026): đổi dataset sang Olist, bỏ tiêu chí injection khỏi mục ①, chụp lại 8 ảnh và cập nhật số liệu đánh giá (86/100, 1/15 luật khớp, 17/30 ca đúng).*
+*Cập nhật README (20/11/2026): đổi dataset sang Olist, bỏ tiêu chí injection khỏi mục ①, chụp lại 8 ảnh và cập nhật số liệu đánh giá (100/100, 15/15 luật khớp, 30/30 ca đúng sau khi nhập luật mẫu từ Excel).*
 
 *Tham chiếu:* Vincent C. Hu, **NIST IR 8504 – Access Control on NoSQL Databases**, 05/2024.
 
