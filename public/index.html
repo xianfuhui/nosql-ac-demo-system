@@ -142,9 +142,9 @@ tr.pending td{background:#fef3c780}
 
 <section id="m14" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">4 kiểu NoSQL</h2><button class="mbtn g" onclick="setMode()"></button></div><div class="dim" style="margin-bottom:10px">Viền xanh lá là mô hình của dữ liệu bạn đang nạp (nằm riêng một dòng, căn giữa). Chỗ có “…” bấm vào để chọn phần cần hiển thị.</div><div class="g4" id="g4"></div></div></section>
 <section id="rules" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Luật truy cập</h2><button class="g" onclick="approveAll()">Duyệt tất cả</button></div>
-  <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
-  <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
-  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div>
+  <table><thead><tr><th>#</th><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
+  <div class="box"><h3 id="rtitle">Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
+  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" id="rbtn" onclick="addRule()">Thêm</button><button id="rcancel" class="hide" onclick="resetForm()">Huỷ</button></div><div id="rerr" class="no"></div></div>
   <div class="box"><h3>Nhập luật thủ công từ Excel</h3><div class="dim">File .xlsx (hoặc .csv) có dòng tiêu đề: <code>id, subject, object, actions, permission, condition, reason</code>. Luật nhập vào được tính là luật thủ công và tự động ở trạng thái đã duyệt. Bản mẫu khớp với bộ ground-truth Olist.</div>
   <div class="row"><input type="file" id="xfile" accept=".xlsx,.csv"><button class="g" onclick="importRules()">Nhập luật</button><button onclick="dlSample()">Tải file Excel mẫu</button></div><div id="xmsg"></div></div></section>
 
@@ -246,7 +246,7 @@ tr.pending td{background:#fef3c780}
 </main>
 <button id="fab" class="needs" title="Trợ lý AI" onclick="$('#bot').classList.toggle('hide')">AI</button>
 <div id="bot" class="box needs hide"><div class="row" style="margin-bottom:8px"><b style="flex:3;color:var(--c)">Trợ lý AI</b><button style="flex:0 0 36px;padding:2px" onclick="$('#bot').classList.add('hide')">×</button></div>
-  <div class="dim" style="margin-bottom:6px">Hỏi về luật, dữ liệu hoặc nhờ sửa luật (luật sửa sẽ chờ bạn duyệt).</div><div id="chatlog"></div>
+  <div class="dim" style="margin-bottom:6px">Hỏi về luật, dữ liệu hoặc nhờ sửa luật theo số thứ tự, ví dụ “sửa luật 3 thành deny” (luật sửa sẽ chờ bạn duyệt lại).</div><div id="chatlog"></div>
   <div class="row"><input id="msg" placeholder="Ví dụ: chặn role=user ghi users/*/email" onkeydown="if(event.key==='Enter')send()"><button style="flex:0 0 70px" onclick="send()">Gửi</button></div></div>
 </div>
 
@@ -355,27 +355,32 @@ function draw(g0,sel,key=sel){RAW[sel]=[g0,key];const g=collapse(g0,key),svg=d3.
     ll.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2-4);nd.attr('transform',d=>`translate(${d.x},${d.y})`)};
   if(tidy)ticked();else sim=d3.forceSimulation(g.nodes).force('l',d3.forceLink(g.links).id(d=>d.id).distance(gr||g.inner?120:g.free?80:60)).force('c',d3.forceManyBody().strength(-220)).force('x',d3.forceX(W/2).strength(.05)).force('y',d3.forceY(d=>gr||g.free?H/2:30+d.level*90).strength(gr||g.free?.05:.6)).on('tick',ticked)}
 // ---- rules ----
-async function loadRules(){const R=await api('/rules');$('#rtb').innerHTML=R.map(r=>`<tr class="${r.status}"><td>${r.status==='pending'?'<span class=wa>chờ duyệt</span>':'<span class=ok>đã duyệt</span>'}<br><span class="tag">${esc(r.src)}</span></td>
+async function loadRules(){const R=await api('/rules');RULES=R;$('#rtb').innerHTML=R.map(r=>`<tr class="${r.status}"><td><b>${r.no}</b></td><td>${r.status==='pending'?'<span class=wa>chờ duyệt</span>':'<span class=ok>đã duyệt</span>'}<br><span class="tag">${esc(r.src)}</span></td>
   <td>${esc(r.subject.join(', ')||'mọi chủ thể')}</td><td class="${r.permission==='grant'?'ok':'no'}">${r.permission}</td><td>${esc(r.object)}</td><td>${esc(r.actions.join(','))}</td><td>${esc(r.condition)}</td><td class="dim">${esc(r.reason)}</td>
-  <td>${r.status==='pending'?`<button class=g onclick="setSt('${r.id}')">Duyệt</button> `:''}<button class=r onclick="delRule('${r.id}')">Xoá</button></td></tr>`).join('')||'<tr><td colspan=8 class=dim>Chưa có luật.</td></tr>'}
+  <td>${r.status==='pending'?`<button class=g onclick="setSt('${r.id}')">Duyệt</button> `:''}<button onclick="editRule(${r.no})">Sửa</button> <button class=r onclick="delRule('${r.id}')">Xoá</button></td></tr>`).join('')||'<tr><td colspan=9 class=dim>Chưa có luật.</td></tr>'}
 const setSt=async id=>{await api('/rules/'+id,'PATCH',{status:'approved'});loadRules()},delRule=async id=>{await api('/rules/'+id,'DELETE');loadRules()},approveAll=async()=>{await api('/rules/approve-all','POST',{});loadRules()};
 async function importRules(){const f=$('#xfile').files[0],m=$('#xmsg');if(!f)return m.innerHTML='<span class=wa>Chọn file .xlsx hoặc .csv trước.</span>';
   try{const b=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
     const r=await api('/rules/import','POST',{filename:f.name,b64:btoa(s)});
     m.innerHTML=`<span class=ok>Đã nhập ${r.imported} luật.</span>`+(r.errors.length?` <span class=no>${r.errors.length} dòng lỗi: ${r.errors.slice(0,5).map(e=>'dòng '+e.row).join(', ')}</span>`:'');loadRules()}catch(e){m.innerHTML=`<span class=no>${esc(e.message)}</span>`}}
 async function dlSample(){try{const r=await fetch('/api/rules/sample.xlsx',{headers:{Authorization:'Bearer '+TK}});if(!r.ok)throw new Error(r.status);const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='luat-mau-olist.xlsx';a.click()}catch(e){$('#xmsg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
-async function addRule(){try{await api('/rules','POST',{subject:$('#rs').value,object:$('#ro').value,actions:$('#ra').value,permission:$('#rp').value,condition:$('#rc').value,reason:$('#rr').value});$('#rerr').textContent='';loadRules()}catch(e){$('#rerr').textContent=e.message}}
+let EDIT=null,RULES=[];
+function resetForm(){EDIT=null;$('#rtitle').textContent='Thêm luật thủ công';$('#rbtn').textContent='Thêm';$('#rcancel').classList.add('hide');['rs','ro','rc','rr'].forEach(i=>$('#'+i).value='');$('#ra').value='read';$('#rp').value='grant';$('#rerr').textContent=''}
+function editRule(no){const r=RULES[no-1];if(!r)return;EDIT=r.id;$('#rtitle').textContent='Sửa luật số '+no;$('#rbtn').textContent='Lưu';$('#rcancel').classList.remove('hide');
+  $('#rs').value=r.subject.join(',');$('#ro').value=r.object;$('#ra').value=r.actions.join(',');$('#rp').value=r.permission;$('#rc').value=r.condition||'';$('#rr').value=r.reason||'';$('#rs').scrollIntoView({behavior:'smooth',block:'center'});$('#ro').focus()}
+async function addRule(){try{const b={subject:$('#rs').value,object:$('#ro').value,actions:$('#ra').value,permission:$('#rp').value,condition:$('#rc').value,reason:$('#rr').value};
+  if(EDIT)await api('/rules/'+EDIT,'PATCH',b);else await api('/rules','POST',b);resetForm();loadRules()}catch(e){$('#rerr').textContent=e.message}}
 // ---- chat ----
 async function send(){const m=$('#msg').value.trim();if(!m)return;$('#msg').value='';const L=$('#chatlog');L.insertAdjacentHTML('beforeend',`<div class="m u">&gt; ${esc(m)}</div>`);
   try{const r=await api('/chat','POST',{message:m});L.insertAdjacentHTML('beforeend',`<div class="m">${esc(r.reply)}${r.changed?`\n<span class=wa>[${r.changed} luật thay đổi, xem tab Luật để duyệt]</span>`:''}</div>`)}catch(e){L.insertAdjacentHTML('beforeend',`<div class="m no">${esc(e.message)}</div>`)}L.scrollTop=L.scrollHeight}
 // ---- check / evaluate / audit ----
 async function check(){let ctx={};try{ctx=JSON.parse($('#cx').value||'{}')}catch{return $('#cres').textContent='Môi trường phải là JSON hợp lệ'}
-  try{const r=await api('/check','POST',{subject:$('#cs').value,object:$('#co').value,action:$('#ca').value,ctx});$('#cres').innerHTML=r.allow?'<span class=ok>CHO PHÉP</span>':'<span class=no>TỪ CHỐI</span>';$('#cby').textContent=r.by?`Theo luật ${r.by.id}: ${r.by.permission} ${r.by.object}`:'Không có luật cho phép khớp (mặc định từ chối).'}catch(e){$('#cres').textContent=e.message}}
+  try{const r=await api('/check','POST',{subject:$('#cs').value,object:$('#co').value,action:$('#ca').value,ctx});$('#cres').innerHTML=r.allow?'<span class=ok>CHO PHÉP</span>':'<span class=no>TỪ CHỐI</span>';$('#cby').textContent=r.by?`Theo luật số ${r.byNo??'?'}: ${r.by.permission} ${r.by.object}`:'Không có luật cho phép khớp (mặc định từ chối).'}catch(e){$('#cres').textContent=e.message}}
 async function evalAC(){let r;try{r=await api('/evaluate')}catch(e){$('#score').textContent='';$('#sb').style.width='0';$('#checks').innerHTML='<span class=wa>Cần nạp dữ liệu trước để chấm điểm NIST IR 8504.</span>';return}
   $('#score').textContent=r.score+'/100';$('#sb').style.width=r.score+'%';
   $('#checks').innerHTML=r.checks.map(c=>`<div class="m"><span class="${c.ok?'ok':'no'}">${c.ok?'[ĐẠT]':'[CHƯA]'}</span> ${esc(c.name)} <span class="tag">NIST IR 8504 §${c.ref}</span> <span class="dim">${esc(c.detail)}</span></div>`).join('')}
 async function loadAudit(){const a=await api('/audit');$('#atb').innerHTML=a.map(x=>`<tr><td class=dim>${esc(new Date(x.t).toLocaleString('vi-VN'))}</td><td>${esc(x.subject)||'<span class=dim>(trống)</span>'}</td><td>${esc(x.object)}</td><td>${esc(x.action)}</td><td class=dim>${esc(x.ctx||'—')}</td>
-  <td class="${x.allow?'ok':'no'}">${x.allow?'CHO PHÉP':'TỪ CHỐI'}</td><td class=dim>${x.rule?esc(x.rule):'không có luật cho phép (mặc định từ chối)'}</td></tr>`).join('')||'<tr><td colspan=7 class=dim>Chưa có lượt kiểm tra nào. Vào tab “Kiểm tra truy cập” và bấm Kiểm tra.</td></tr>'}
+  <td class="${x.allow?'ok':'no'}">${x.allow?'CHO PHÉP':'TỪ CHỐI'}</td><td class=dim>${x.rule?(x.ruleNo?'luật số '+x.ruleNo:'<span title="luật đã bị xoá">(luật đã xoá)</span>'):'không có luật cho phép (mặc định từ chối)'}</td></tr>`).join('')||'<tr><td colspan=7 class=dim>Chưa có lượt kiểm tra nào. Vào tab “Kiểm tra truy cập” và bấm Kiểm tra.</td></tr>'}
 // ---- 4 kiểu NoSQL ----
 async function m14(){const s=await api('/state'),T=(h,r)=>`<table><tr><th>${h[0]}</th><th>${h[1]}</th></tr>${r}</table>`,
   kv=T(['Key','Value'],'<tr><td>Key 1</td><td>Value 1</td></tr><tr><td>…</td><td>…</td></tr><tr><td>Key n</td><td>Value n</td></tr>'),
@@ -456,7 +461,7 @@ async function runRuleAccuracy(){
     const CLABELS={subject:'Chủ thể',object:'Đối tượng',action:'Hành động',permission:'Quyền',condition:'Điều kiện'};
     $('#ra-comp').innerHTML=Object.entries(c).map(([k,v])=>compBar(+v,CLABELS[k]||k)).join('');
     $('#ra-detail').innerHTML=r.details.map((d,i)=>`<tr>
-      <td class="dim">${d.gtId}</td><td>${esc(d.reason)}<br><span class="dim">${esc(d.gtDesc||'')}</span></td><td class="dim">${esc(d.ruleId||'—')}</td>
+      <td class="dim">${d.gtId}</td><td>${esc(d.reason)}<br><span class="dim">${esc(d.gtDesc||'')}</span></td><td class="dim">${d.ruleNo?'luật '+d.ruleNo:'—'}</td>
       <td>${d.components?.subject?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
       <td>${d.components?.object?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
       <td>${d.components?.action?'<span class=ok>✓</span>':'<span class=no>✗</span>'}</td>
@@ -490,7 +495,7 @@ async function runDecisionAccuracy(){
       <td class="${d.expected?'ok':'no'}">${d.expected?'CHO PHÉP':'TỪ CHỐI'}</td>
       <td class="${d.got?'ok':'no'}">${d.got?'CHO PHÉP':'TỪ CHỐI'}</td>
       <td>${d.ok?'<span class=ok>[✓ ĐÚNG]</span>':'<span class=no>[✗ SAI]</span>'}</td>
-      <td class=dim>${esc(d.ruleId||'—')}</td></tr>`).join('');
+      <td class=dim>${d.ruleNo?'luật '+d.ruleNo:'—'}</td></tr>`).join('');
     $('#da-det').classList.remove('hide');$('#da-msg').textContent='';
   }catch(e){$('#da-msg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
 

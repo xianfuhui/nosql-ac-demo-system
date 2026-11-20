@@ -7,6 +7,7 @@ Công cụ web giúp quản trị viên **tự động sinh, duyệt, kiểm tra
 2. [Vấn đề](#2-vấn-đề)
 3. [Mục tiêu](#3-mục-tiêu)
 4. [Sơ đồ chức năng](#4-sơ-đồ-chức-năng)
+   - [Kịch bản minh họa](#kịch-bản-minh-họa-một-luồng-dữ-liệu-olist)
 5. [Dataset](#5-dataset)
 6. [Đánh giá](#6-đánh-giá)
 7. [Chụp màn hình](#7-chụp-màn-hình)
@@ -92,13 +93,43 @@ flowchart TD
 | **Nạp dữ liệu** | Gemini API key, Database hệ thống (không bắt buộc), 4 cách nạp dữ liệu |
 | **Tổng quan** | Mô tả hệ thống, sơ đồ cấu trúc dữ liệu đang nạp |
 | **4 kiểu NoSQL** | Hình minh họa Key-value / Wide-column / Document / Graph và bảng 5 tầng |
-| **Luật** | Xem, thêm, sửa, xoá, duyệt luật; chat với AI để chỉnh luật |
+| **Luật** | Xem, thêm, **sửa thủ công (nút Sửa)**, xoá, duyệt luật; mỗi luật có **số thứ tự** (cột `#`). Chat với AI để sửa tại chỗ, ví dụ “sửa luật 3 thành deny” (luật sửa giữ nguyên số thứ tự, chờ duyệt lại) |
 | **Kiểm tra truy cập** | Thử `subject – object – action – ctx`, trả về cho phép/từ chối và luật quyết định |
 | **Xuất phân quyền** | Tải JSON / CSV / `acl-engine.js` |
 | **Nhật ký** | Các lượt kiểm tra truy cập: lưu tối đa 500 lượt gần nhất, giao diện hiển thị 100 lượt mới nhất |
 | **Đánh giá** | 5 mục đánh giá + bộ chuẩn (ground truth) |
 
+> Số thứ tự luật là vị trí trong danh sách (từ 1) và được dùng thay cho mã ngẫu nhiên ở tab Kiểm tra truy cập, Nhật ký và Đánh giá. Khi xoá một luật, các luật phía sau dồn lên một số.
+
 **Quy tắc quyết định:** (1) có luật `deny` khớp → từ chối; (2) có luật `grant` khớp → cho phép; (3) không khớp luật nào → từ chối. Luật ở đối tượng cha áp dụng cho con (`orders/*` bao phủ `orders/*/card`).
+
+### Kịch bản minh họa (một luồng, dữ liệu Olist)
+
+Bối cảnh: sàn thương mại điện tử Olist cần phân quyền cho 7 collection trước khi cho 6 nhóm người dùng (`admin`, `seller`, `customer`, `support`, `finance`, `analyst`) truy cập. Các giai đoạn dưới đây đi theo đúng thứ tự trong sơ đồ.
+
+| Giai đoạn (theo sơ đồ) | Quản trị viên làm gì | Trường hợp / kết quả |
+|---|---|---|
+| **1. Đăng nhập** | Vào giao diện web, đăng nhập `ADMIN_USER` / `ADMIN_PASS` | Đúng → nhận token 8 giờ. Sai 5 lần trong 10 phút → bị khoá tạm thời. |
+| **2. Nạp dữ liệu** | Tab *Nạp dữ liệu* → chọn mẫu **Olist** (có thể nhập Gemini API key) | Nạp thành công 7 collection. Không có key → hệ thống dùng luật heuristic thay cho Gemini. Nạp file/URL/DB thật cũng đi qua bước này. |
+| **3. Phân tích cấu trúc** | Tab *Tổng quan* | Hiện cây *database → collection → document → trường*. Trường nhạy cảm (`customer_unique_id`, `payment_value`, `review_comment_message`…) được che `••••`. |
+| **4. Sinh luật** | Tab *Luật* | Gemini (hoặc heuristic) đề xuất luật; mọi luật ở trạng thái **chờ duyệt**, chưa có hiệu lực. |
+| **5. Duyệt / sửa luật** | Xem bảng luật theo số thứ tự `#`, rồi duyệt | **Đúng** → bấm *Duyệt*. **Sai một phần** → bấm *Sửa*, hoặc nhắn chat "sửa luật 3 thành deny" (luật giữ số, chờ duyệt lại). **Thừa** → *Xoá* hoặc nhắn chat "xoá luật 4". **Thiếu** → *Thêm* thủ công hoặc nhờ chat. Có thể nhập nhanh bộ luật chuẩn từ Excel mẫu (15 luật, đã duyệt). |
+| **6. Kiểm tra quyền** | Tab *Kiểm tra truy cập*, nhập `subject – object – action – ctx` | Xem 5 ca ở bảng dưới. Mỗi lượt cho biết CHO PHÉP / TỪ CHỐI và *luật số N* quyết định. |
+| **7. Nhật ký** | Tab *Nhật ký* | Mỗi lượt kiểm tra ở bước 6 được ghi lại (thời gian, chủ thể, đối tượng, kết quả, luật số). Lưu tối đa 500 lượt. |
+| **8. Xuất phân quyền** | Tab *Xuất phân quyền* | Chỉ luật **đã duyệt** được xuất ra `acl-policy.json`, `acl-policy.csv` hoặc `acl-engine.js`. Luật còn chờ duyệt bị bỏ qua. |
+| **9. Đánh giá** | Tab *Đánh giá*, bộ chuẩn `olist` (15 luật + 30 ca) | ① điểm tuân thủ NIST IR 8504 (7 tiêu chí) · ② luật AI so với luật chuẩn · ③ thủ công vs AI · ④ độ chính xác 30 ca quyết định · ⑤ tốc độ truy vấn. Chỗ nào sai hoặc thiếu thì quay lại bước 5 để sửa rồi chạy lại. |
+
+**Các ca kiểm tra ở giai đoạn 6** (theo bộ luật chuẩn Olist; luật do AI sinh có thể cho kết quả khác, và đó chính là điều giai đoạn 9 đo):
+
+| # | Yêu cầu | Kết quả | Lý do |
+|---|---|---|---|
+| a | `role=seller` đọc `order_items/i1`, ctx `user.id=s1`, `resource.seller_id=s1` | CHO PHÉP | Khớp luật cho phép và điều kiện sở hữu đúng. |
+| b | Như (a) nhưng `resource.seller_id=s2` | TỪ CHỐI | Điều kiện không thỏa → không có luật cho phép khớp (mặc định từ chối). |
+| c | `role=admin` đọc `customers/c1/customer_unique_id` | TỪ CHỐI | Luật `deny` thắng luật toàn quyền của admin (*deny-overrides*). |
+| d | `role=support` đọc `order_payments/o1` | TỪ CHỐI | Không có luật cho phép nào nhắc tới support trên thanh toán. |
+| e | Chủ thể `role=admin,role=*` xoá `orders/o1` | TỪ CHỐI | Luật cấm xoá đơn hàng áp dụng cho mọi vai trò. |
+
+Ngoài luồng chính, mọi yêu cầu `/api` đều đi qua bộ lọc injection: gửi nội dung có `$where`, `$ne`… (ví dụ ở ô Đối tượng) sẽ bị chặn với lỗi 400 `Blocked: NoSQL injection pattern`.
 
 ## 5. Dataset
 
