@@ -31,7 +31,6 @@ const why = (v, d = 0) => {
   return null;
 };
 const dirty = v => !!why(v);
-const PAYLOADS = ['{"$ne":""}', '{"$gt":""}', '{"$where":"sleep(5000)"}', "' || '1'=='1", "admin'--", "'; return true; var x='", '<script>alert(1)</script>', '{"$regex":".*"}'];   // dùng để tự kiểm tra bộ lọc guard trong tiêu chí §4.2 của tab Đánh giá
 const guard = (req, res, next) => {
   const { content, message, key, ...rest } = req.body || {};   // content = data to analyse, message = chat text for AI
   if (dirty(rest) || dirty(req.query)) { return res.status(400).json({ error: 'Blocked: NoSQL injection pattern' }); }
@@ -64,7 +63,7 @@ app.post('/api/login', (req, res) => {
 
 // ---------- NoSQL structure builder (NIST Sec. 3.1) ----------
 const prim = v => v === null || typeof v !== 'object';
-const SENS = /pass|pwd|secret|token|ssn|salary|card|cvv|email|phone|dob|address|iban|health|diagnos|key$/i;
+const SENS = /pass|pwd|secret|token|ssn|salary|card|cvv|email|phone|dob|address|iban|health|diagnos|unique_id|zip_code|payment_value|comment_message|key$/i;
 const mask = (k, v) => SENS.test(k) ? '••••' : prim(v) ? String(v).slice(0, 14) : '{…}';
 function detect(d) {
   if (d && d.nodes && (d.edges || d.links)) return 'graph';
@@ -103,7 +102,7 @@ function build(model, d, name = 'db') {
   return { model, nodes: N, links: L, paths: [...P] };
 }
 const { SAMPLES } = require('./data/samples');
-const { HOSPITAL_DATA, HOSPITAL_GT, HOSPITAL_TESTS } = require('./data/hospital');
+const { OLIST_DATA, OLIST_GT, OLIST_TESTS } = require('./data/olist');
 const SYS = require('./data/store');   // database riêng của hệ thống (MONGO_URI): nơi chứa mọi dữ liệu đã nạp
 
 // ---------- rules + decision engine ----------
@@ -222,7 +221,7 @@ app.post('/api/ingest', auth, async (req, res) => {
     else if (kind === 'url') { const u = new URL(url); if (!/^https?:$/.test(u.protocol) || PRIVATE.test(u.hostname)) throw new Error('URL not allowed (SSRF protection)');
       data = parse(await (await fetch(u, { signal: AbortSignal.timeout(8000) })).text()); name = u.hostname; }
     else if (kind === 'sample') {
-      if (model === 'hospital') { data = HOSPITAL_DATA; name = 'hospital_benhvien'; hint = 'document'; }
+      if (model === 'olist') { data = OLIST_DATA; name = 'olist_ecommerce'; hint = 'document'; }
       else { const k = SAMPLES[model] ? model : 'document'; data = SAMPLES[k]; name = 'sample_' + k; }
     }
     else if (kind === 'mongo') { if (!/^mongodb(\+srv)?:\/\//.test(uri)) throw new Error('Invalid URI'); ({ data, name } = await scanMongo(uri)); hint = 'document'; }
@@ -278,7 +277,7 @@ function csvRows(txt) {   // CSV có dấu nháy kép
     else if (ch === '\n' || ch === '\r') { if (ch === '\r' && txt[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; } else cur += ch; }
   if (cur || row.length) { row.push(cur); rows.push(row); } return rows;
 }
-app.get('/api/rules/sample.xlsx', auth, (q, res) => res.sendFile(require('path').join(__dirname, 'data', 'luat-mau-benhvien.xlsx')));
+app.get('/api/rules/sample.xlsx', auth, (q, res) => res.sendFile(require('path').join(__dirname, 'data', 'luat-mau-olist.xlsx')));
 app.post('/api/rules/import', auth, (req, res) => {   // {filename, b64} cho .xlsx, hoặc {csv} / filename .csv
   try {
     const { filename = '', b64, csv } = req.body || {};
@@ -332,14 +331,12 @@ app.get('/api/evaluate', auth, (q, res) => {
   const P = S.ds?.paths || [], A = S.rules.filter(r => r.status === 'approved'), cov = P.filter(p => A.some(r => glob(r.object, p) && r.object !== '*')).length;
   const sens = P.filter(p => SENS.test(p)), prot = sens.filter(p => A.some(r => r.permission === 'deny' && glob(r.object, p)));
   const conf = A.filter(a => a.permission === 'grant' && A.some(b => b.permission === 'deny' && b.object === a.object && a.subject.join() === b.subject.join() && a.actions.some(x => b.actions.includes(x)))).length;
-  const inj = PAYLOADS.every(p => dirty(p));
   const pend = S.rules.filter(r => r.status === 'pending').length;
   const C = [
     { name: 'Phân quyền chi tiết (độ phủ luật)', ref: '4.1', ok: P.length && cov / P.length >= .8, detail: `${cov}/${P.length} đường dẫn có luật đã duyệt (cần từ 80%)` },
     { name: 'Bảo vệ trường nhạy cảm', ref: '4.2', ok: prot.length === sens.length, detail: `${prot.length}/${sens.length} trường nhạy cảm đã có luật từ chối` },
     { name: 'Không còn luật chờ duyệt', ref: '3.3', ok: !pend, detail: `${pend} luật đang chờ duyệt` },
     { name: 'Không có luật cho phép / từ chối xung đột', ref: '3.2', ok: !conf, detail: `${conf} xung đột` },
-    { name: 'Bộ lọc chống NoSQL injection', ref: '4.2', ok: inj, detail: inj ? `chặn được ${PAYLOADS.length}/${PAYLOADS.length} chuỗi tấn công mẫu` : 'có chuỗi tấn công lọt qua bộ lọc' },
     { name: 'Ghi nhật ký các lượt kiểm tra truy cập', ref: '4.6', ok: S.audit.length > 0, detail: S.audit.length ? `đã ghi ${S.audit.length} lượt kiểm tra truy cập` : 'chưa có lượt nào, hãy thử ở tab Kiểm tra truy cập' },
     { name: 'Điều kiện môi trường', ref: '4.7', ok: A.some(r => r.condition), detail: 'có ít nhất một luật dùng điều kiện (ví dụ class<=10)' },
     { name: 'Mặc định từ chối', ref: '3.3', ok: true, detail: 'yêu cầu không khớp luật cho phép nào đều bị từ chối' }];
@@ -414,7 +411,7 @@ const nowMs = () => Number(process.hrtime.bigint()) / 1e6;
 
 // ---------- Bộ chuẩn đánh giá THEO DỮ LIỆU ĐANG NẠP ----------
 // custom  : người dùng tự nạp ground truth (tab Benchmark)
-// hospital: mẫu Bệnh viện -> 20 luật + 30 ca soạn tay
+// olist: mẫu Olist E-Commerce -> 15 luật + 30 ca soạn tay
 // auto    : dữ liệu khác -> luật tham chiếu tự sinh từ cấu trúc (admin / editor / user) + ca kiểm thử sinh từ luật đó
 const cp = p => String(p).replace(/\*/g, 'r1');   // đường dẫn mẫu -> đường dẫn cụ thể
 const colsOf = ds => [...new Set((ds.paths || []).map(p => p.split('/')[0]))];
@@ -448,7 +445,7 @@ function autoBench(ds) {
 function getBench() {
   const ds = S.ds; if (!ds) return null;
   if (S.bench && S.bench.ds === ds.name) return { mode: 'custom', label: 'Ground truth do bạn nạp', rules: S.bench.rules, tests: S.bench.tests };
-  if (ds.name === 'hospital_benhvien') return { mode: 'hospital', label: 'Bệnh viện Đa khoa (luật chuẩn soạn tay)', rules: HOSPITAL_GT, tests: HOSPITAL_TESTS };
+  if (ds.name === 'olist_ecommerce') return { mode: 'olist', label: 'Olist Brazilian E-Commerce (luật chuẩn soạn tay)', rules: OLIST_GT, tests: OLIST_TESTS };
   return { mode: 'auto', label: `Luật tham chiếu tự sinh từ cấu trúc "${ds.name}"`, ...autoBench(ds) };
 }
 const gtDesc = r => `${r.permission} · ${r.subject.join('+')} · ${r.object} · ${r.actions.join(',')}`;

@@ -10,7 +10,7 @@
         "*"
       ],
       "permission": "grant",
-      "reason": "Quản trị viên hệ thống có toàn quyền quản lý kỹ thuật và cấu hình tổng thể theo tiêu chuẩn kiểm soát truy cập.",
+      "reason": "Quản trị viên hệ thống có toàn quyền quản lý kỹ thuật và cấu hình tổng thể.",
       "condition": ""
     },
     {
@@ -18,175 +18,172 @@
       "subject": [
         "role=admin"
       ],
-      "object": "hoSoBenhAn/*/ketQuaXetNghiem",
+      "object": "customers/*/customer_unique_id",
       "actions": [
         "read"
       ],
       "permission": "deny",
-      "reason": "Tuân thủ nguyên tắc quyền riêng tư NIST IR 8504, quản trị viên không được phép xem chi tiết kết quả y tế nhạy cảm của bệnh nhân.",
+      "reason": "Quản trị viên kỹ thuật không được xem mã định danh khách hàng (dữ liệu cá nhân, LGPD/NIST IR 8504).",
       "condition": ""
     },
     {
       "id": "gt03",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "hoSoBenhAn/*",
+      "object": "order_items/*",
       "actions": [
-        "read",
-        "write"
+        "read"
       ],
       "permission": "grant",
-      "reason": "Bác sĩ được phép xem và chẩn đoán, cập nhật hồ sơ bệnh án thuộc khoa chuyên môn của mình.",
-      "condition": "user.khoa == resource.khoa"
+      "reason": "Người bán chỉ xem các dòng hàng thuộc về chính mình.",
+      "condition": "user.id == resource.seller_id"
     },
     {
       "id": "gt04",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "donthuoc/*",
+      "object": "products/*",
+      "actions": [
+        "read"
+      ],
+      "permission": "grant",
+      "reason": "Người bán xem danh mục sản phẩm để quản lý gian hàng.",
+      "condition": ""
+    },
+    {
+      "id": "gt05",
+      "subject": [
+        "role=seller"
+      ],
+      "object": "sellers/*",
       "actions": [
         "read",
         "write"
       ],
       "permission": "grant",
-      "reason": "Bác sĩ có quyền kê đơn thuốc và chỉnh sửa đơn thuốc do chính mình tạo ra.",
-      "condition": "user.id == resource.bacSiKe"
-    },
-    {
-      "id": "gt05",
-      "subject": [
-        "role=bacSi"
-      ],
-      "object": "benhNhan/*",
-      "actions": [
-        "read"
-      ],
-      "permission": "grant",
-      "reason": "Bác sĩ cần truy cập thông tin hành chính và nhóm máu của bệnh nhân để phục vụ công tác khám chữa bệnh.",
-      "condition": ""
+      "reason": "Người bán xem và cập nhật hồ sơ của chính mình.",
+      "condition": "user.id == resource.seller_id"
     },
     {
       "id": "gt06",
       "subject": [
-        "role=duocSi"
+        "role=seller"
       ],
-      "object": "donthuoc/*",
+      "object": "customers/*",
       "actions": [
         "read"
       ],
-      "permission": "grant",
-      "reason": "Dược sĩ có quyền xem thông tin đơn thuốc để thực hiện cấp phát thuốc cho bệnh nhân.",
+      "permission": "deny",
+      "reason": "Người bán không được xem thông tin cá nhân của khách hàng.",
       "condition": ""
     },
     {
       "id": "gt07",
       "subject": [
-        "role=duocSi"
+        "role=customer"
       ],
-      "object": "thuoc/*",
+      "object": "orders/*",
       "actions": [
-        "read",
-        "write"
+        "read"
       ],
       "permission": "grant",
-      "reason": "Dược sĩ quản lý kho thuốc, có quyền cập nhật giá, số lượng tồn kho và hạn sử dụng của thuốc.",
-      "condition": ""
+      "reason": "Khách hàng chỉ xem đơn hàng của chính mình.",
+      "condition": "user.id == resource.customer_id"
     },
     {
       "id": "gt08",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "benhNhan/*",
+      "object": "customers/*",
       "actions": [
-        "read"
+        "read",
+        "write"
       ],
       "permission": "grant",
-      "reason": "Bệnh nhân chỉ có quyền xem thông tin cá nhân của chính mình.",
-      "condition": "user.id == resource._id"
+      "reason": "Khách hàng xem và cập nhật hồ sơ cá nhân của mình.",
+      "condition": "user.id == resource.customer_id"
     },
     {
       "id": "gt09",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "hoSoBenhAn/*",
+      "object": "order_reviews/*",
       "actions": [
-        "read"
+        "read",
+        "write"
       ],
       "permission": "grant",
-      "reason": "Bệnh nhân có quyền truy cập xem lịch sử khám và hồ sơ bệnh án cá nhân.",
-      "condition": "user.id == resource.benhNhanId"
+      "reason": "Khách hàng xem và viết đánh giá cho đơn hàng của mình.",
+      "condition": "user.orderId == resource.order_id"
     },
     {
       "id": "gt10",
       "subject": [
-        "role=benhNhan"
+        "role=support"
       ],
-      "object": "lichHen/*",
+      "object": "orders/*",
       "actions": [
-        "read",
-        "write"
+        "read"
       ],
       "permission": "grant",
-      "reason": "Bệnh nhân có quyền đặt, xem và hủy lịch hẹn khám của cá nhân mình.",
-      "condition": "user.id == resource.benhNhanId"
+      "reason": "Nhân viên chăm sóc khách hàng xem đơn hàng để xử lý khiếu nại.",
+      "condition": ""
     },
     {
       "id": "gt11",
       "subject": [
-        "role=nhanVienLieuLienLienLac"
+        "role=support"
       ],
-      "object": "lichHen/*",
+      "object": "order_reviews/*",
       "actions": [
         "read",
         "write"
       ],
       "permission": "grant",
-      "reason": "Nhân viên tiếp tân/tiếp nhận có quyền quản lý, điều phối lịch hẹn khám bệnh của toàn hệ thống.",
+      "reason": "Nhân viên chăm sóc khách hàng đọc và phản hồi đánh giá.",
       "condition": ""
     },
     {
       "id": "gt12",
       "subject": [
-        "role=nhanVienLieuLienLienLac"
+        "role=support"
       ],
-      "object": "benhNhan/*",
+      "object": "customers/*",
       "actions": [
-        "read",
-        "write"
+        "read"
       ],
       "permission": "grant",
-      "reason": "Nhân viên tiếp tân có quyền tiếp nhận và cập nhật thông tin hành chính của bệnh nhân mới.",
+      "reason": "Nhân viên chăm sóc khách hàng xem hồ sơ khách để liên hệ hỗ trợ.",
       "condition": ""
     },
     {
       "id": "gt13",
       "subject": [
-        "role=nhanVien"
+        "role=finance"
       ],
-      "object": "nhanVien/*/luong",
+      "object": "order_payments/*",
       "actions": [
         "read"
       ],
-      "permission": "deny",
-      "reason": "Đảm bảo tính bảo mật tiền lương, nhân viên không thể xem lương của đồng nghiệp.",
-      "condition": "user.id != resource._id"
+      "permission": "grant",
+      "reason": "Kế toán đối soát thanh toán của đơn hàng.",
+      "condition": ""
     },
     {
       "id": "gt14",
       "subject": [
-        "role=quanLyNhanSu"
+        "role=analyst"
       ],
-      "object": "nhanVien/*",
+      "object": "orders/*",
       "actions": [
-        "read",
-        "write"
+        "read"
       ],
       "permission": "grant",
-      "reason": "Quản lý nhân sự có quyền truy cập và cập nhật hồ sơ, lương và bằng cấp của nhân viên.",
+      "reason": "Chuyên viên phân tích đọc dữ liệu đơn hàng để làm báo cáo.",
       "condition": ""
     },
     {
@@ -194,12 +191,12 @@
       "subject": [
         "role=*"
       ],
-      "object": "hoSoBenhAn/*",
+      "object": "orders/*",
       "actions": [
         "delete"
       ],
       "permission": "deny",
-      "reason": "Ngăn chặn việc xóa hồ sơ bệnh án tuân thủ quy định lưu trữ dữ liệu y tế quốc gia.",
+      "reason": "Không ai được xóa đơn hàng để phục vụ đối soát và lưu vết.",
       "condition": ""
     }
   ],
@@ -209,359 +206,356 @@
       "subject": [
         "role=admin"
       ],
-      "object": "benhNhan/bn001",
+      "object": "orders/o1",
       "action": "read",
       "ctx": {},
       "expected": true,
-      "desc": "Admin đọc thông tin bệnh nhân"
+      "desc": "Admin đọc đơn hàng"
     },
     {
       "id": "tc02",
       "subject": [
         "role=admin"
       ],
-      "object": "thuoc/th001",
+      "object": "products/p1",
       "action": "delete",
       "ctx": {},
       "expected": true,
-      "desc": "Admin xóa thuốc (toàn quyền)"
+      "desc": "Admin xóa sản phẩm (toàn quyền)"
     },
     {
       "id": "tc03",
       "subject": [
         "role=admin"
       ],
-      "object": "hoSoBenhAn/hs001/ketQuaXetNghiem",
+      "object": "customers/c1/customer_unique_id",
       "action": "read",
       "ctx": {},
       "expected": false,
-      "desc": "Admin đọc kết quả xét nghiệm (phải bị chặn)"
+      "desc": "Admin đọc mã định danh khách hàng (phải bị chặn)"
     },
     {
       "id": "tc04",
       "subject": [
         "role=admin"
       ],
-      "object": "hoSoBenhAn/hs001/ketQuaXetNghiem",
+      "object": "customers/c1/customer_unique_id",
       "action": "write",
       "ctx": {},
       "expected": true,
-      "desc": "Admin ghi kết quả xét nghiệm (deny chỉ áp dụng cho read)"
+      "desc": "Admin ghi mã định danh (deny chỉ áp dụng cho read)"
     },
     {
       "id": "tc05",
       "subject": [
         "role=admin"
       ],
-      "object": "hoSoBenhAn/hs001/chanDoan",
+      "object": "customers/c1/customer_city",
       "action": "read",
       "ctx": {},
       "expected": true,
-      "desc": "Admin đọc chẩn đoán (không thuộc luật chặn)"
+      "desc": "Admin đọc thành phố khách hàng (không thuộc luật chặn)"
     },
     {
       "id": "tc06",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "hoSoBenhAn/hs001",
+      "object": "order_items/i1",
       "action": "read",
       "ctx": {
-        "user.khoa": "Nội khoa",
-        "resource.khoa": "Nội khoa"
+        "user.id": "s1",
+        "resource.seller_id": "s1"
       },
       "expected": true,
-      "desc": "Bác sĩ đọc hồ sơ cùng khoa"
+      "desc": "Người bán đọc dòng hàng của mình"
     },
     {
       "id": "tc07",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "hoSoBenhAn/hs001",
-      "action": "write",
+      "object": "order_items/i2",
+      "action": "read",
       "ctx": {
-        "user.khoa": "Nội khoa",
-        "resource.khoa": "Nội khoa"
+        "user.id": "s1",
+        "resource.seller_id": "s2"
       },
-      "expected": true,
-      "desc": "Bác sĩ ghi hồ sơ cùng khoa"
+      "expected": false,
+      "desc": "Người bán đọc dòng hàng của người bán khác (phải bị chặn)"
     },
     {
       "id": "tc08",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "hoSoBenhAn/hs002",
-      "action": "read",
+      "object": "order_items/i1",
+      "action": "write",
       "ctx": {
-        "user.khoa": "Nội khoa",
-        "resource.khoa": "Hô hấp"
+        "user.id": "s1",
+        "resource.seller_id": "s1"
       },
       "expected": false,
-      "desc": "Bác sĩ đọc hồ sơ khác khoa (phải bị chặn)"
+      "desc": "Người bán sửa dòng hàng (không có quyền)"
     },
     {
       "id": "tc09",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "donthuoc/dt001",
-      "action": "write",
-      "ctx": {
-        "user.id": "bs001",
-        "resource.bacSiKe": "bs001"
-      },
+      "object": "products/p1",
+      "action": "read",
+      "ctx": {},
       "expected": true,
-      "desc": "Bác sĩ sửa đơn thuốc do mình kê"
+      "desc": "Người bán xem sản phẩm"
     },
     {
       "id": "tc10",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "donthuoc/dt002",
+      "object": "products/p1",
       "action": "write",
-      "ctx": {
-        "user.id": "bs001",
-        "resource.bacSiKe": "bs002"
-      },
+      "ctx": {},
       "expected": false,
-      "desc": "Bác sĩ sửa đơn thuốc của bác sĩ khác (phải bị chặn)"
+      "desc": "Người bán sửa sản phẩm (không có quyền)"
     },
     {
       "id": "tc11",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "benhNhan/bn001",
-      "action": "read",
-      "ctx": {},
+      "object": "sellers/s1",
+      "action": "write",
+      "ctx": {
+        "user.id": "s1",
+        "resource.seller_id": "s1"
+      },
       "expected": true,
-      "desc": "Bác sĩ xem thông tin bệnh nhân"
+      "desc": "Người bán sửa hồ sơ của mình"
     },
     {
       "id": "tc12",
       "subject": [
-        "role=bacSi"
+        "role=seller"
       ],
-      "object": "benhNhan/bn001",
+      "object": "sellers/s2",
       "action": "write",
-      "ctx": {},
+      "ctx": {
+        "user.id": "s1",
+        "resource.seller_id": "s2"
+      },
       "expected": false,
-      "desc": "Bác sĩ sửa thông tin hành chính bệnh nhân (không có quyền)"
+      "desc": "Người bán sửa hồ sơ người bán khác (phải bị chặn)"
     },
     {
       "id": "tc13",
       "subject": [
-        "role=duocSi"
+        "role=seller"
       ],
-      "object": "donthuoc/dt001",
+      "object": "customers/c1",
       "action": "read",
       "ctx": {},
-      "expected": true,
-      "desc": "Dược sĩ xem đơn thuốc"
+      "expected": false,
+      "desc": "Người bán đọc thông tin khách hàng (phải bị chặn)"
     },
     {
       "id": "tc14",
       "subject": [
-        "role=duocSi"
+        "role=customer"
       ],
-      "object": "donthuoc/dt001",
-      "action": "write",
-      "ctx": {},
-      "expected": false,
-      "desc": "Dược sĩ sửa đơn thuốc (không có quyền)"
+      "object": "orders/o1",
+      "action": "read",
+      "ctx": {
+        "user.id": "c1",
+        "resource.customer_id": "c1"
+      },
+      "expected": true,
+      "desc": "Khách hàng đọc đơn hàng của mình"
     },
     {
       "id": "tc15",
       "subject": [
-        "role=duocSi"
+        "role=customer"
       ],
-      "object": "thuoc/th001",
-      "action": "write",
-      "ctx": {},
-      "expected": true,
-      "desc": "Dược sĩ cập nhật kho thuốc"
+      "object": "orders/o2",
+      "action": "read",
+      "ctx": {
+        "user.id": "c1",
+        "resource.customer_id": "c2"
+      },
+      "expected": false,
+      "desc": "Khách hàng đọc đơn hàng của người khác (phải bị chặn)"
     },
     {
       "id": "tc16",
       "subject": [
-        "role=duocSi"
+        "role=customer"
       ],
-      "object": "hoSoBenhAn/hs001",
-      "action": "read",
-      "ctx": {},
+      "object": "orders/o1",
+      "action": "write",
+      "ctx": {
+        "user.id": "c1",
+        "resource.customer_id": "c1"
+      },
       "expected": false,
-      "desc": "Dược sĩ đọc hồ sơ bệnh án (không có quyền)"
+      "desc": "Khách hàng sửa đơn hàng (không có quyền)"
     },
     {
       "id": "tc17",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "benhNhan/bn001",
-      "action": "read",
+      "object": "customers/c1",
+      "action": "write",
       "ctx": {
-        "user.id": "bn001",
-        "resource._id": "bn001"
+        "user.id": "c1",
+        "resource.customer_id": "c1"
       },
       "expected": true,
-      "desc": "Bệnh nhân đọc thông tin của chính mình"
+      "desc": "Khách hàng cập nhật hồ sơ của mình"
     },
     {
       "id": "tc18",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "benhNhan/bn002",
+      "object": "customers/c2",
       "action": "read",
       "ctx": {
-        "user.id": "bn001",
-        "resource._id": "bn002"
+        "user.id": "c1",
+        "resource.customer_id": "c2"
       },
       "expected": false,
-      "desc": "Bệnh nhân đọc thông tin người khác (phải bị chặn)"
+      "desc": "Khách hàng đọc hồ sơ người khác (phải bị chặn)"
     },
     {
       "id": "tc19",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "hoSoBenhAn/hs001",
-      "action": "read",
+      "object": "order_reviews/r1",
+      "action": "write",
       "ctx": {
-        "user.id": "bn001",
-        "resource.benhNhanId": "bn001"
+        "user.orderId": "o1",
+        "resource.order_id": "o1"
       },
       "expected": true,
-      "desc": "Bệnh nhân đọc hồ sơ bệnh án của mình"
+      "desc": "Khách hàng viết đánh giá cho đơn của mình"
     },
     {
       "id": "tc20",
       "subject": [
-        "role=benhNhan"
+        "role=customer"
       ],
-      "object": "hoSoBenhAn/hs001",
-      "action": "write",
+      "object": "order_reviews/r2",
+      "action": "read",
       "ctx": {
-        "user.id": "bn001",
-        "resource.benhNhanId": "bn001"
+        "user.orderId": "o1",
+        "resource.order_id": "o2"
       },
       "expected": false,
-      "desc": "Bệnh nhân sửa hồ sơ bệnh án (phải bị chặn)"
+      "desc": "Khách hàng đọc đánh giá đơn của người khác (phải bị chặn)"
     },
     {
       "id": "tc21",
       "subject": [
-        "role=benhNhan"
+        "role=support"
       ],
-      "object": "lichHen/lh001",
-      "action": "write",
-      "ctx": {
-        "user.id": "bn001",
-        "resource.benhNhanId": "bn001"
-      },
+      "object": "orders/o1",
+      "action": "read",
+      "ctx": {},
       "expected": true,
-      "desc": "Bệnh nhân đặt/hủy lịch hẹn của mình"
+      "desc": "CSKH xem đơn hàng"
     },
     {
       "id": "tc22",
       "subject": [
-        "role=benhNhan"
+        "role=support"
       ],
-      "object": "lichHen/lh002",
-      "action": "read",
-      "ctx": {
-        "user.id": "bn001",
-        "resource.benhNhanId": "bn003"
-      },
-      "expected": false,
-      "desc": "Bệnh nhân xem lịch hẹn của người khác (phải bị chặn)"
+      "object": "order_reviews/r1",
+      "action": "write",
+      "ctx": {},
+      "expected": true,
+      "desc": "CSKH phản hồi đánh giá"
     },
     {
       "id": "tc23",
       "subject": [
-        "role=nhanVienLieuLienLienLac"
+        "role=support"
       ],
-      "object": "lichHen/lh001",
-      "action": "write",
+      "object": "customers/c1",
+      "action": "read",
       "ctx": {},
       "expected": true,
-      "desc": "Nhân viên tiếp nhận điều phối lịch hẹn"
+      "desc": "CSKH xem hồ sơ khách hàng"
     },
     {
       "id": "tc24",
       "subject": [
-        "role=nhanVienLieuLienLienLac"
+        "role=support"
       ],
-      "object": "benhNhan/bn001",
-      "action": "write",
+      "object": "order_payments/o1",
+      "action": "read",
       "ctx": {},
-      "expected": true,
-      "desc": "Nhân viên tiếp nhận cập nhật thông tin hành chính bệnh nhân"
+      "expected": false,
+      "desc": "CSKH đọc thanh toán (không có quyền)"
     },
     {
       "id": "tc25",
       "subject": [
-        "role=nhanVienLieuLienLienLac"
+        "role=finance"
       ],
-      "object": "hoSoBenhAn/hs001",
+      "object": "order_payments/o1",
       "action": "read",
       "ctx": {},
-      "expected": false,
-      "desc": "Nhân viên tiếp nhận đọc hồ sơ bệnh án (không có quyền)"
+      "expected": true,
+      "desc": "Kế toán đọc thanh toán"
     },
     {
       "id": "tc26",
       "subject": [
-        "role=nhanVien"
+        "role=finance"
       ],
-      "object": "nhanVien/bs002/luong",
-      "action": "read",
-      "ctx": {
-        "user.id": "bs001",
-        "resource._id": "bs002"
-      },
+      "object": "order_payments/o1",
+      "action": "write",
+      "ctx": {},
       "expected": false,
-      "desc": "Nhân viên xem lương đồng nghiệp (phải bị chặn)"
+      "desc": "Kế toán sửa thanh toán (không có quyền)"
     },
     {
       "id": "tc27",
       "subject": [
-        "role=quanLyNhanSu"
+        "role=analyst"
       ],
-      "object": "nhanVien/bs001/luong",
-      "action": "write",
+      "object": "orders/o1",
+      "action": "read",
       "ctx": {},
       "expected": true,
-      "desc": "Quản lý nhân sự cập nhật lương nhân viên"
+      "desc": "Chuyên viên phân tích đọc đơn hàng"
     },
     {
       "id": "tc28",
       "subject": [
-        "role=quanLyNhanSu"
+        "role=analyst"
       ],
-      "object": "thuoc/th001",
+      "object": "customers/c1/customer_unique_id",
       "action": "read",
       "ctx": {},
       "expected": false,
-      "desc": "Quản lý nhân sự đọc kho thuốc (không có quyền)"
+      "desc": "Chuyên viên phân tích đọc mã khách hàng (không có quyền)"
     },
     {
       "id": "tc29",
       "subject": [
-        "role=bacSi",
+        "role=support",
         "role=*"
       ],
-      "object": "hoSoBenhAn/hs001",
+      "object": "orders/o1",
       "action": "delete",
-      "ctx": {
-        "user.khoa": "Nội khoa",
-        "resource.khoa": "Nội khoa"
-      },
+      "ctx": {},
       "expected": false,
-      "desc": "Bác sĩ xóa hồ sơ bệnh án (phải bị chặn)"
+      "desc": "CSKH xóa đơn hàng (phải bị chặn)"
     },
     {
       "id": "tc30",
@@ -569,11 +563,11 @@
         "role=admin",
         "role=*"
       ],
-      "object": "hoSoBenhAn/hs001",
+      "object": "orders/o1",
       "action": "delete",
       "ctx": {},
       "expected": false,
-      "desc": "Admin xóa hồ sơ bệnh án (deny thắng grant toàn quyền)"
+      "desc": "Admin xóa đơn hàng (deny thắng grant toàn quyền)"
     }
   ]
 }

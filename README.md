@@ -111,20 +111,23 @@ flowchart TD
 | `document` | Document | `users` (name, email, role, salary), `orders` (id, total, card) |
 | `graph` | Graph | 6 nút (user, group, company, file, department, organization) và 5 cạnh (`in`, `works for`, `managed by`, `belongs to`, `can read`) |
 
-### 5.2 Dataset Bệnh viện Đa khoa (`data/hospital.js`)
+### 5.2 Dataset Olist Brazilian E-Commerce (`data/olist.js`)
 
-Dataset chính để đánh giá, mô hình **document**, gồm 6 collection:
+Dataset chính để đánh giá, nguồn [Brazilian E-Commerce Public Dataset by Olist (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), mô hình **document**, gồm 7 collection (tên bảng và tên cột giữ nguyên như bộ dữ liệu gốc, kể cả lỗi chính tả `lenght`):
 
 | Collection | Nội dung | Trường nhạy cảm tiêu biểu |
 |---|---|---|
-| `benhNhan` | Hồ sơ bệnh nhân | `cccd`, `sdt`, `diaChi`, `baoHiemYTe` |
-| `hoSoBenhAn` | Bệnh án | `chanDoan`, `ketQuaXetNghiem` |
-| `donthuoc` | Đơn thuốc | `thuoc[]` |
-| `lichHen` | Lịch hẹn | — |
-| `nhanVien` | Nhân viên y tế | `luong` |
-| `thuoc` | Danh mục thuốc | — |
+| `customers` | Khách hàng | `customer_unique_id`, `customer_zip_code_prefix` |
+| `orders` | Đơn hàng và mốc thời gian giao nhận | — |
+| `order_items` | Dòng hàng của đơn (sản phẩm, người bán, giá, phí vận chuyển) | — |
+| `order_payments` | Thanh toán | `payment_value` |
+| `order_reviews` | Đánh giá của khách | `review_comment_message` |
+| `products` | Danh mục sản phẩm | — |
+| `sellers` | Người bán | — |
 
-Kèm theo là **bộ chuẩn (ground truth)**: **15 luật** soạn tay (`HOSPITAL_GT`) và **30 ca kiểm thử** (`HOSPITAL_TESTS`), cũng có trong `ground-truth.json`.
+> **Lưu ý:** dữ liệu trong `data/olist.js` chỉ là vài dòng mẫu liên kết với nhau theo đúng lược đồ Olist, không phải toàn bộ bộ dữ liệu trên Kaggle (khoảng 100.000 đơn hàng). Để dùng dữ liệu đầy đủ, tải các file CSV từ Kaggle (ví dụ `olist_customers_dataset.csv`) rồi nạp ở *Nạp dữ liệu → Tải file*.
+
+Kèm theo là **bộ chuẩn (ground truth)**: **15 luật** soạn tay (`OLIST_GT`, 7 vai trò: `admin`, `seller`, `customer`, `support`, `finance`, `analyst`, `role=*`) và **30 ca kiểm thử** (`OLIST_TESTS`), cũng có trong `ground-truth.json`.
 
 ### 5.3 Dữ liệu của người dùng
 
@@ -138,30 +141,32 @@ Kèm theo là **bộ chuẩn (ground truth)**: **15 luật** soạn tay (`HOSPIT
 
 ## 6. Đánh giá
 
-Tab **📊 Đánh giá** chạy trên *dữ liệu đang nạp*. Bộ chuẩn có 3 chế độ: `hospital` (15 luật + 30 ca soạn tay), `auto` (luật tham chiếu tự sinh: admin/editor/user, chặn trường nhạy cảm, chặn xoá — chỉ mang tính tham khảo), `custom` (người dùng tự nạp).
+Tab **📊 Đánh giá** chạy trên *dữ liệu đang nạp*. Bộ chuẩn có 3 chế độ: `olist` (15 luật + 30 ca soạn tay), `auto` (luật tham chiếu tự sinh: admin/editor/user, chặn trường nhạy cảm, chặn xoá — chỉ mang tính tham khảo), `custom` (người dùng tự nạp).
 
 | Mục | Đo gì | Cách tính |
 |---|---|---|
-| **① Tuân thủ NIST IR 8504** | Điểm theo 8 tiêu chí | Phân quyền chi tiết (độ phủ ≥ 80% đường dẫn) · bảo vệ trường nhạy cảm · không còn luật chờ duyệt · không xung đột grant/deny · chống injection (8 chuỗi tấn công mẫu) · ghi nhật ký · điều kiện môi trường · mặc định từ chối |
+| **① Tuân thủ NIST IR 8504** | Điểm theo 7 tiêu chí | Phân quyền chi tiết (độ phủ ≥ 80% đường dẫn) · bảo vệ trường nhạy cảm · không còn luật chờ duyệt · không xung đột grant/deny · ghi nhật ký · điều kiện môi trường · mặc định từ chối |
 | **② Độ chính xác chuyển đổi luật** | Luật AI/heuristic so với luật chuẩn | Khớp chính xác và theo từng thành phần: subject, object, action, permission, condition |
 | **③ Thủ công vs AI** | Số luật, tỷ lệ duyệt, thời gian duyệt trung bình | Từ `createdAt` → `approvedAt` theo nguồn luật |
 | **④ Độ chính xác quyết định** | Chạy các ca kiểm thử | Accuracy, *false allow* (cho phép nhầm — nghiêm trọng), *false deny* |
 | **⑤ Tốc độ truy vấn** | Chi phí của lớp ABAC | Cùng một danh sách yêu cầu chạy hai nhánh: chỉ truy vấn DB (baseline) và kiểm tra quyền + truy vấn DB, đổi thứ tự luân phiên; báo cáo avg, p50/p95/p99, QPS, % overhead. Không có DB thật thì chỉ đo hàm quyết định trong bộ nhớ |
 
-**Kết quả thử nghiệm** (dataset Bệnh viện, 12 luật **heuristic** do hệ thống tự sinh vì chưa dùng Gemini key, đã duyệt hết, chế độ đo trong bộ nhớ):
+**Kết quả thử nghiệm** (dataset Olist, 19 luật **heuristic** do hệ thống tự sinh vì chưa dùng Gemini key, đã duyệt hết, chế độ đo trong bộ nhớ):
 
 | Tiêu chí | Kết quả |
 |---|---|
-| Điểm tuân thủ NIST IR 8504 (①) | **88/100** (7/8 tiêu chí đạt; chưa đạt "điều kiện môi trường" vì chưa có luật dùng điều kiện) |
-| Khớp chính xác luật chuẩn (②) | 1/15 luật (6,7%). Theo thành phần: object 100%, action 100%, permission 80%, condition 60%, subject 13,3% |
-| Độ chính xác quyết định (④) | 16/30 ca (53,3%): false allow 2, false deny 12 |
-| Chi phí kiểm tra quyền (⑤) | trung bình 0,0202 ms/lần, p95 0,0093 ms, khoảng 49.500 lượt/giây |
+| Điểm tuân thủ NIST IR 8504 (①) | **86/100** (6/7 tiêu chí đạt; chưa đạt "điều kiện môi trường" vì chưa có luật dùng điều kiện) |
+| Khớp chính xác luật chuẩn (②) | 1/15 luật (6,7%). Theo thành phần: object 100%, action 100%, permission 80%, condition 66,7%, subject 13,3% |
+| Độ chính xác quyết định (④) | 17/30 ca (56,7%): false allow 2, false deny 11 |
+| Chi phí kiểm tra quyền (⑤) | trung bình khoảng 0,010 ms/lần, p95 khoảng 0,013 ms, khoảng 98.000 lượt/giây (thay đổi nhẹ giữa các lần chạy) |
 
-Nhận xét: luật heuristic chỉ phân quyền theo `role=admin` và `role=user` nên lệch so với bộ chuẩn nghiệp vụ bệnh viện (bác sĩ, y tá, lễ tân…), dẫn tới nhiều *false deny*. Nên chạy lại với Gemini key và bộ luật đã chỉnh tay để so sánh. Chi phí của hàm kiểm tra quyền rất nhỏ (dưới 0,03 ms). Chưa đo so với truy vấn DB thật (cần nạp bằng cách 3 hoặc kết nối Database hệ thống).
+Nhận xét: luật heuristic chỉ phân quyền theo `role=admin` và `role=user` nên lệch so với bộ chuẩn nghiệp vụ Olist (seller, customer, support, finance, analyst…), dẫn tới nhiều *false deny*. Nên chạy lại với Gemini key và bộ luật đã chỉnh tay để so sánh; bộ luật chuẩn nạp từ `data/luat-mau-olist.xlsx` đạt 30/30 ca. Chi phí của hàm kiểm tra quyền rất nhỏ (dưới 0,03 ms). Chưa đo so với truy vấn DB thật (cần nạp bằng cách 3 hoặc kết nối Database hệ thống).
+
+---
 
 ## 7. Chụp màn hình
 
-> Ảnh chụp với dataset Bệnh viện Đa khoa, lưu trong `docs/screenshots/`.
+> Ảnh chụp với dataset Olist Brazilian E-Commerce, lưu trong `docs/screenshots/`.
 
 | Nạp dữ liệu | Tổng quan |
 |---|---|
@@ -236,7 +241,7 @@ nosql-acl/
 ├── server.js          # API, bộ máy quyết định, guard, đánh giá
 ├── data/
 │   ├── samples.js     # 4 mẫu keyvalue / wide / document / graph
-│   ├── hospital.js    # dataset Bệnh viện + 15 luật chuẩn + 30 ca kiểm thử
+│   ├── olist.js       # dataset Olist E-Commerce + 15 luật chuẩn + 30 ca kiểm thử
 │   └── store.js       # database hệ thống (Mongo/Redis/Cassandra/Neo4j)
 ├── public/index.html  # giao diện
 ├── ground-truth.json  # bộ chuẩn mẫu: 15 luật + 30 ca (tải về chỉnh rồi nạp lại)
@@ -256,18 +261,18 @@ nosql-acl/
 | `POST /api/chat` | Chat AI chỉnh luật |
 | `POST /api/check`, `GET /api/audit` | Kiểm tra quyền; nhật ký (100 lượt mới nhất) |
 | `GET /api/export?format=json\|csv\|js` | Xuất phân quyền |
-| `GET /api/evaluate` | Điểm tuân thủ NIST IR 8504 |
+| `GET /api/evaluate` | Điểm tuân thủ NIST IR 8504 (7 tiêu chí) |
 | `GET /api/eval/bench-info`, `…/rule-accuracy`, `…/authoring`, `…/decision-accuracy` | Đánh giá ②③④ |
 | `POST /api/eval/performance` | Đánh giá ⑤ |
 | `GET/POST/DELETE /api/eval/ground-truth` | Bộ chuẩn |
 | `POST/DELETE /api/gemini-key`, `POST/DELETE /api/system-db` | Cấu hình key và database hệ thống |
 
-*Cập nhật README (18/11/2026):* đồng bộ với code hiện tại (nhật ký hiển thị 100 lượt, biến `.env`, cấu trúc thư mục, danh sách thư viện) và với ảnh chụp màn hình tab Đánh giá (88/100, 1/15 luật khớp, 16/30 ca đúng).
+*Cập nhật README (20/11/2026): đổi dataset sang Olist, bỏ tiêu chí injection khỏi mục ①, chụp lại 8 ảnh và cập nhật số liệu đánh giá (86/100, 1/15 luật khớp, 17/30 ca đúng).*
 
 *Tham chiếu:* Vincent C. Hu, **NIST IR 8504 – Access Control on NoSQL Databases**, 05/2024.
 
 ## Nhập luật thủ công từ Excel
 
 Tab **Luật → Nhập luật thủ công từ Excel** nhận file `.xlsx` (sheet đầu tiên) hoặc `.csv` với các cột `id, subject, object, actions, permission, condition, reason`.
-Bản mẫu `data/luat-mau-benhvien.xlsx` (cũng tải được từ nút "Tải file Excel mẫu") khớp 15/15 luật và 30/30 test của `ground-truth.json` khi nạp bộ dữ liệu bệnh viện.
+Bản mẫu `data/luat-mau-olist.xlsx` (cũng tải được từ nút "Tải file Excel mẫu") khớp 15/15 luật và 30/30 test của `ground-truth.json` khi nạp bộ dữ liệu Olist.
 Điều kiện hỗ trợ `== != <= >= < >`, `&&`, `||`; vế phải có thể là thuộc tính khác (ví dụ `user.khoa == resource.khoa`).

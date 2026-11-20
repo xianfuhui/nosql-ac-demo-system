@@ -117,7 +117,7 @@ tr.pending td{background:#fef3c780}
   </div>
   <div id="shint" class="dim">Chọn một cách nạp ở trên để hiện ô nhập.</div>
   <div class="pn hide" data-s="0"><h3>0. Dùng dữ liệu mẫu để test</h3><div class="row"><select id="smp">
-    <option value="hospital">🏥 Bệnh viện Đa khoa — dataset thực tế (benchmark)</option>
+    <option value="olist">🛒 Olist Brazilian E-Commerce (Kaggle) — dataset thực tế (benchmark)</option>
     <option value="document">Document (users, orders)</option>
     <option value="keyvalue">Key-value (session, cache)</option>
     <option value="wide">Wide-column (profile, logs)</option>
@@ -145,7 +145,7 @@ tr.pending td{background:#fef3c780}
   <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
   <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
   <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div>
-  <div class="box"><h3>Nhập luật thủ công từ Excel</h3><div class="dim">File .xlsx (hoặc .csv) có dòng tiêu đề: <code>id, subject, object, actions, permission, condition, reason</code>. Luật nhập vào được tính là luật thủ công và tự động ở trạng thái đã duyệt. Bản mẫu khớp với bộ ground-truth bệnh viện.</div>
+  <div class="box"><h3>Nhập luật thủ công từ Excel</h3><div class="dim">File .xlsx (hoặc .csv) có dòng tiêu đề: <code>id, subject, object, actions, permission, condition, reason</code>. Luật nhập vào được tính là luật thủ công và tự động ở trạng thái đã duyệt. Bản mẫu khớp với bộ ground-truth Olist.</div>
   <div class="row"><input type="file" id="xfile" accept=".xlsx,.csv"><button class="g" onclick="importRules()">Nhập luật</button><button onclick="dlSample()">Tải file Excel mẫu</button></div><div id="xmsg"></div></div></section>
 
 
@@ -194,7 +194,7 @@ tr.pending td{background:#fef3c780}
   <div class="dim">Gồm chấm điểm tuân thủ <span class="tag">NIST IR 8504</span> và các benchmark thực nghiệm, chạy trên <b>dữ liệu bạn đang nạp</b>: bộ luật chuẩn và ca kiểm thử đi theo dữ liệu đó · đo hiệu năng bằng <code>process.hrtime.bigint()</code>.</div>
   <div id="bench-state" style="margin-top:8px"></div>
   <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--c)">Bộ chuẩn (ground truth) dùng cho ②③④ (xem / tải / thay bằng bộ của bạn)</summary>
-    <div class="dim" style="margin:8px 0">Mẫu Bệnh viện dùng 20 luật soạn tay. Dữ liệu khác dùng <b>luật tham chiếu tự sinh</b> từ cấu trúc (admin / editor / user, chặn trường nhạy cảm, chặn xoá) — chỉ mang tính tham khảo. Muốn đánh giá chuẩn xác, hãy tải bộ tham chiếu về, chỉnh theo nghiệp vụ của bạn rồi nạp lại.</div>
+    <div class="dim" style="margin:8px 0">Mẫu Olist dùng 15 luật soạn tay. Dữ liệu khác dùng <b>luật tham chiếu tự sinh</b> từ cấu trúc (admin / editor / user, chặn trường nhạy cảm, chặn xoá) — chỉ mang tính tham khảo. Muốn đánh giá chuẩn xác, hãy tải bộ tham chiếu về, chỉnh theo nghiệp vụ của bạn rồi nạp lại.</div>
     <div class="row"><input type="file" id="gtfile" accept=".json"><button class="g" onclick="gtUpload()">Dùng bộ chuẩn này</button><button onclick="gtDownload()">Tải bộ chuẩn hiện tại (.json)</button><button class="r" onclick="gtReset()">Về mặc định</button></div>
     <div class="dim" style="margin-top:6px">Định dạng: <code>{"rules":[{"subject":["role=user"],"object":"orders/*/card","actions":["read"],"permission":"deny"}],"tests":[{"subject":["role=user"],"object":"orders/o1/card","action":"read","expected":false}]}</code> — <code>tests</code> có thể bỏ trống, hệ thống tự sinh từ luật.</div>
     <div id="gt-msg" style="margin-top:6px"></div></details>
@@ -276,7 +276,7 @@ async function saveSys(){const u=$('#sysuri').value.trim();if(!u)return $('#syss
   try{await api('/system-db','POST',{uri:u});$('#sysuri').value='';sstat()}catch(e){$('#sysst').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
 async function delSys(){try{await api('/system-db','DELETE');sstat()}catch(e){$('#sysst').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
 async function delKey(){try{await api('/gemini-key','DELETE');gstat()}catch(e){$('#gstat').innerHTML='<span class=no>'+esc(e.message)+'</span>'}}
-$('#smp').onchange=()=>{$('#smp-hint').textContent=$('#smp').value==='hospital'?'Dataset thực tế: 6 collection · bệnh nhân, hồ sơ bệnh án, đơn thuốc, lịch hẹn, nhân viên, thuốc — dùng được trực tiếp cho tab Benchmark':''};
+$('#smp').onchange=()=>{$('#smp-hint').textContent=$('#smp').value==='olist'?'Dataset Olist (Kaggle): 7 collection · customers, orders, order_items, order_payments, order_reviews, products, sellers — dùng được trực tiếp cho tab Đánh giá':''};
 async function ingest(b){$('#sinfo').textContent='Đang phân tích…';try{await api('/ingest','POST',{model:$('#model').value,...b});$('#sinfo').textContent='';for(const k in PICK)delete PICK[k];resetBenchUI();$('#app').classList.add('has');tab('over')}catch(e){$('#sinfo').textContent='Lỗi: '+e.message}}
 function ingestFile(){const f=$('#file').files[0];if(!f)return $('#sinfo').textContent='Chọn một file trước.';const r=new FileReader();r.onload=()=>ingest({kind:'upload',content:r.result,filename:f.name});r.readAsText(f)}
 async function info(){const s=await api('/state');$('#sys').innerHTML=s.has?esc(s.system):'Chưa có dữ liệu.';
@@ -363,7 +363,7 @@ async function importRules(){const f=$('#xfile').files[0],m=$('#xmsg');if(!f)ret
   try{const b=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
     const r=await api('/rules/import','POST',{filename:f.name,b64:btoa(s)});
     m.innerHTML=`<span class=ok>Đã nhập ${r.imported} luật.</span>`+(r.errors.length?` <span class=no>${r.errors.length} dòng lỗi: ${r.errors.slice(0,5).map(e=>'dòng '+e.row).join(', ')}</span>`:'');loadRules()}catch(e){m.innerHTML=`<span class=no>${esc(e.message)}</span>`}}
-async function dlSample(){try{const r=await fetch('/api/rules/sample.xlsx',{headers:{Authorization:'Bearer '+TK}});if(!r.ok)throw new Error(r.status);const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='luat-mau-benhvien.xlsx';a.click()}catch(e){$('#xmsg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+async function dlSample(){try{const r=await fetch('/api/rules/sample.xlsx',{headers:{Authorization:'Bearer '+TK}});if(!r.ok)throw new Error(r.status);const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='luat-mau-olist.xlsx';a.click()}catch(e){$('#xmsg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
 async function addRule(){try{await api('/rules','POST',{subject:$('#rs').value,object:$('#ro').value,actions:$('#ra').value,permission:$('#rp').value,condition:$('#rc').value,reason:$('#rr').value});$('#rerr').textContent='';loadRules()}catch(e){$('#rerr').textContent=e.message}}
 // ---- chat ----
 async function send(){const m=$('#msg').value.trim();if(!m)return;$('#msg').value='';const L=$('#chatlog');L.insertAdjacentHTML('beforeend',`<div class="m u">&gt; ${esc(m)}</div>`);
@@ -427,7 +427,7 @@ $('#p').onkeydown=e=>{if(e.key==='Enter')login()};if(TK)start();
 async function checkBenchState(){
   try{const s=await api('/state');
     if(!s.has){$('#bench-state').innerHTML=`<span class=wa>⚠ Chưa có dữ liệu — vào tab <b>Nạp dữ liệu</b>, nạp dữ liệu của bạn rồi quay lại đây.</span>`;return}
-    const b=await api('/eval/bench-info'),M={hospital:'mẫu bệnh viện',custom:'do bạn nạp',auto:'tự sinh từ cấu trúc'};
+    const b=await api('/eval/bench-info'),M={olist:'mẫu Olist',custom:'do bạn nạp',auto:'tự sinh từ cấu trúc'};
     $('#bench-state').innerHTML=`<span class=ok>✓ Dữ liệu đang nạp:</span> <b>${esc(s.name)}</b> · mô hình ${esc(s.model)} · ${s.paths} đường dẫn · ${s.rules} luật (${s.pending} chờ duyệt)<br>`+
       `<span class=ok>✓ Bộ chuẩn:</span> ${esc(b.label)} <span class="tag">${M[b.mode]}</span> · ${b.gtCount} luật chuẩn · ${b.testCount} ca kiểm thử`+
       (b.mode==='auto'?`<br><span class=wa>ⓘ Luật tham chiếu tự sinh nên chỉ mang tính tham khảo; nạp ground truth riêng để kết quả có giá trị đối chứng.</span>`:'');
@@ -484,7 +484,7 @@ async function runDecisionAccuracy(){
       kpiBox(r.correct+'/'+r.total,'Quyết định đúng',cls)+
       kpiBox(r.falseAllow,'Cho phép nhầm (false positive)',r.falseAllow===0?'ok':'no')+
       kpiBox(r.falseDeny,'Từ chối nhầm (false negative)',r.falseDeny===0?'ok':'no');
-    $('#da-kpi').style.display='grid';
+    $('#da-kpi').classList.remove('hide');$('#da-kpi').style.display='grid';
     $('#da-detail').innerHTML=r.details.map(d=>`<tr>
       <td class=dim>${d.id}</td><td>${esc(d.desc)}</td>
       <td class="${d.expected?'ok':'no'}">${d.expected?'CHO PHÉP':'TỪ CHỐI'}</td>
