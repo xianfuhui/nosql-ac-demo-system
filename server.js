@@ -120,8 +120,8 @@ function clean(o, src) {   // validate untrusted rule input (AI or admin)
 }
 const glob = (pat, p) => pat === '*' || new RegExp('^' + pat.split('*').map(x => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/.*)?$').test(p); // children inherit (Sec. 3.2.2)
 const cond = (c, ctx) => { if (!c) return true;   // nhiều điều kiện: && (và), || (hoặc); && ưu tiên trước ||. Ví dụ: class<=10 && shift==day || role==admin
-  const one = t => { const m = t.trim().match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
-    const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+  const one = t => { const m = t.trim().match(/^([\w.]+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
+    const [, k, o, v0] = m, v = v0.trim(), a = ctx[k], b = v in ctx ? ctx[v] : isNaN(v) ? v : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
   return c.split('||').some(g => g.split('&&').every(one)); };
 const decideWith = (rules, s, o, a, ctx = {}) => {   // deny-overrides, default deny; rules = bộ luật bất kỳ (dùng cho cả luật chuẩn khi benchmark)
   const m = rules.filter(r => r.subject.every(x => s.includes(x)) && glob(r.object, o) && (r.actions.includes('*') || r.actions.includes(a)) && cond(r.condition, ctx));
@@ -265,6 +265,41 @@ app.get('/api/graph', auth, (req, res) => {
 });
 app.get('/api/rules', auth, (q, r) => r.json(S.rules));
 app.post('/api/rules', auth, (req, res) => { const r = clean(req.body, 'manual'); if (!r) return res.status(400).json({ error: 'Invalid rule' }); r.status = 'approved'; S.rules.push(r); save(); res.json(r); });
+// ---------- nhập luật thủ công từ Excel (.xlsx) hoặc CSV ----------
+const { readXlsx } = require('./data/xlsx-lite');
+const HDR = { id: 'id', subject: 'subject', chuthe: 'subject', object: 'object', doituong: 'object', actions: 'actions', action: 'actions', hanhdong: 'actions',
+  permission: 'permission', quyen: 'permission', condition: 'condition', dieukien: 'condition', reason: 'reason', lydo: 'reason' };
+const hdrKey = h => HDR[String(h || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z]/g, '')];
+function csvRows(txt) {   // CSV có dấu nháy kép
+  const rows = []; let row = [], cur = '', q = false; txt = txt.replace(/^﻿/, '');
+  for (let i = 0; i < txt.length; i++) { const ch = txt[i];
+    if (q) { if (ch === '"') { if (txt[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && txt[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; } else cur += ch; }
+  if (cur || row.length) { row.push(cur); rows.push(row); } return rows;
+}
+app.get('/api/rules/sample.xlsx', auth, (q, res) => res.sendFile(require('path').join(__dirname, 'data', 'luat-mau-benhvien.xlsx')));
+app.post('/api/rules/import', auth, (req, res) => {   // {filename, b64} cho .xlsx, hoặc {csv} / filename .csv
+  try {
+    const { filename = '', b64, csv } = req.body || {};
+    let rows = /\.csv$/i.test(filename) || typeof csv === 'string' ? csvRows(String(csv ?? Buffer.from(String(b64 || ''), 'base64').toString('utf8'))) : readXlsx(Buffer.from(String(b64 || ''), 'base64'));
+    rows = rows.filter(r => r.some(c => String(c || '').trim()));
+    if (rows.length < 2) return res.status(400).json({ error: 'File cần có dòng tiêu đề và ít nhất một luật.' });
+    const cols = rows[0].map(hdrKey), need = ['subject', 'object', 'actions', 'permission'].filter(k => !cols.includes(k));
+    if (need.length) return res.status(400).json({ error: 'Thiếu cột: ' + need.join(', ') + '. Cột bắt buộc: subject, object, actions, permission (tùy chọn: id, condition, reason).' });
+    const added = [], errors = [], now = new Date().toISOString();
+    rows.slice(1, 301).forEach((r, i) => {
+      const o = {}; cols.forEach((k, j) => { if (k) o[k] = String(r[j] ?? '').trim(); });
+      o.permission = (o.permission || '').toLowerCase();
+      o.subject = (o.subject || '').replace(/;/g, ','); o.actions = (o.actions || '').replace(/;/g, ',');   // CSV xuất từ hệ thống dùng dấu ; giữa các giá trị
+      const x = clean(o, 'manual');
+      if (!x) return errors.push({ row: i + 2, error: 'Luật không hợp lệ (cần object, actions ∈ read|write|delete|*, permission ∈ grant|deny, không chứa mẫu nguy hiểm).' });
+      x.status = 'approved'; x.approvedAt = now; added.push(x);
+    });
+    S.rules.push(...added); save();
+    res.json({ ok: true, imported: added.length, errors, rules: added.map(r => ({ id: r.id, object: r.object, permission: r.permission })) });
+  } catch (e) { res.status(400).json({ error: 'Không đọc được file: ' + String(e.message).slice(0, 160) }); }
+});
 app.patch('/api/rules/:id', auth, (req, res) => { const r = S.rules.find(x => x.id === req.params.id); if (!r) return res.sendStatus(404);
   if (['approved', 'pending'].includes(req.body.status)) { r.status = req.body.status; if (req.body.status === 'approved' && !r.approvedAt) r.approvedAt = new Date().toISOString(); } save(); res.json(r); });
 app.delete('/api/rules/:id', auth, (req, res) => { S.rules = S.rules.filter(x => x.id !== req.params.id); save(); res.json({ ok: 1 }); });
@@ -314,8 +349,8 @@ app.get('/api/evaluate', auth, (q, res) => {
 function makeEngine(POLICY) {   // self-contained: also embedded (via toString) in the exported acl-engine.js
   const glob = (pat, p) => pat === '*' || new RegExp('^' + pat.split('*').map(x => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*') + '(/.*)?$').test(p);
   const cond = (c, ctx) => { if (!c) return true;   // nhiều điều kiện: && (và), || (hoặc)
-    const one = t => { const m = t.trim().match(/^(\w+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
-      const [, k, o, v] = m, a = ctx[k], b = isNaN(v) ? v.trim() : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
+    const one = t => { const m = t.trim().match(/^([\w.]+)\s*(==|!=|<=|>=|<|>)\s*(.+)$/); if (!m) return false;
+      const [, k, o, v0] = m, v = v0.trim(), a = ctx[k], b = v in ctx ? ctx[v] : isNaN(v) ? v : +v; return { '==': a == b, '!=': a != b, '<=': a <= b, '>=': a >= b, '<': a < b, '>': a > b }[o]; };
     return c.split('||').some(g => g.split('&&').every(one)); };
   const decide = (subject, object, action, ctx = {}) => {   // deny-overrides, default deny
     const s = Array.isArray(subject) ? subject : String(subject || '').split(',').map(x => x.trim()).filter(Boolean);

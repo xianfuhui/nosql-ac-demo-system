@@ -144,7 +144,9 @@ tr.pending td{background:#fef3c780}
 <section id="rules" class="tab hide"><div class="box"><div class="row"><h2 style="flex:3">Luật truy cập</h2><button class="g" onclick="approveAll()">Duyệt tất cả</button></div>
   <table><thead><tr><th>Trạng thái</th><th>Chủ thể</th><th></th><th>Đối tượng</th><th>Hành động</th><th>Điều kiện</th><th>Lý do</th><th></th></tr></thead><tbody id="rtb"></tbody></table></div>
   <div class="box"><h3>Thêm luật thủ công</h3><div class="row"><input id="rs" placeholder="Chủ thể: role=user,dept=HR"><input id="ro" placeholder="Đối tượng: users/*/salary"><input id="ra" placeholder="read,write,delete,*" value="read">
-  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div></section>
+  <select id="rp"><option value="grant">grant</option><option value="deny">deny</option></select><input id="rc" placeholder="Điều kiện: class<=10 && shift==day"><input id="rr" placeholder="Lý do"><button class="g" onclick="addRule()">Thêm</button></div><div id="rerr" class="no"></div></div>
+  <div class="box"><h3>Nhập luật thủ công từ Excel</h3><div class="dim">File .xlsx (hoặc .csv) có dòng tiêu đề: <code>id, subject, object, actions, permission, condition, reason</code>. Luật nhập vào được tính là luật thủ công và tự động ở trạng thái đã duyệt. Bản mẫu khớp với bộ ground-truth bệnh viện.</div>
+  <div class="row"><input type="file" id="xfile" accept=".xlsx,.csv"><button class="g" onclick="importRules()">Nhập luật</button><button onclick="dlSample()">Tải file Excel mẫu</button></div><div id="xmsg"></div></div></section>
 
 
 
@@ -357,6 +359,11 @@ async function loadRules(){const R=await api('/rules');$('#rtb').innerHTML=R.map
   <td>${esc(r.subject.join(', ')||'mọi chủ thể')}</td><td class="${r.permission==='grant'?'ok':'no'}">${r.permission}</td><td>${esc(r.object)}</td><td>${esc(r.actions.join(','))}</td><td>${esc(r.condition)}</td><td class="dim">${esc(r.reason)}</td>
   <td>${r.status==='pending'?`<button class=g onclick="setSt('${r.id}')">Duyệt</button> `:''}<button class=r onclick="delRule('${r.id}')">Xoá</button></td></tr>`).join('')||'<tr><td colspan=8 class=dim>Chưa có luật.</td></tr>'}
 const setSt=async id=>{await api('/rules/'+id,'PATCH',{status:'approved'});loadRules()},delRule=async id=>{await api('/rules/'+id,'DELETE');loadRules()},approveAll=async()=>{await api('/rules/approve-all','POST',{});loadRules()};
+async function importRules(){const f=$('#xfile').files[0],m=$('#xmsg');if(!f)return m.innerHTML='<span class=wa>Chọn file .xlsx hoặc .csv trước.</span>';
+  try{const b=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
+    const r=await api('/rules/import','POST',{filename:f.name,b64:btoa(s)});
+    m.innerHTML=`<span class=ok>Đã nhập ${r.imported} luật.</span>`+(r.errors.length?` <span class=no>${r.errors.length} dòng lỗi: ${r.errors.slice(0,5).map(e=>'dòng '+e.row).join(', ')}</span>`:'');loadRules()}catch(e){m.innerHTML=`<span class=no>${esc(e.message)}</span>`}}
+async function dlSample(){try{const r=await fetch('/api/rules/sample.xlsx',{headers:{Authorization:'Bearer '+TK}});if(!r.ok)throw new Error(r.status);const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download='luat-mau-benhvien.xlsx';a.click()}catch(e){$('#xmsg').innerHTML=`<span class=no>${esc(e.message)}</span>`}}
 async function addRule(){try{await api('/rules','POST',{subject:$('#rs').value,object:$('#ro').value,actions:$('#ra').value,permission:$('#rp').value,condition:$('#rc').value,reason:$('#rr').value});$('#rerr').textContent='';loadRules()}catch(e){$('#rerr').textContent=e.message}}
 // ---- chat ----
 async function send(){const m=$('#msg').value.trim();if(!m)return;$('#msg').value='';const L=$('#chatlog');L.insertAdjacentHTML('beforeend',`<div class="m u">&gt; ${esc(m)}</div>`);

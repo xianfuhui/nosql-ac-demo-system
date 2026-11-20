@@ -265,3 +265,9 @@ nosql-acl/
 *Cập nhật README (18/11/2026):* đồng bộ với code hiện tại (nhật ký hiển thị 100 lượt, biến `.env`, cấu trúc thư mục, danh sách thư viện) và với ảnh chụp màn hình tab Đánh giá (88/100, 1/15 luật khớp, 16/30 ca đúng).
 
 *Tham chiếu:* Vincent C. Hu, **NIST IR 8504 – Access Control on NoSQL Databases**, 05/2024.
+
+## Nhập luật thủ công từ Excel
+
+Tab **Luật → Nhập luật thủ công từ Excel** nhận file `.xlsx` (sheet đầu tiên) hoặc `.csv` với các cột `id, subject, object, actions, permission, condition, reason`.
+Bản mẫu `data/luat-mau-benhvien.xlsx` (cũng tải được từ nút "Tải file Excel mẫu") khớp 15/15 luật và 30/30 test của `ground-truth.json` khi nạp bộ dữ liệu bệnh viện.
+Điều kiện hỗ trợ `== != <= >= < >`, `&&`, `||`; vế phải có thể là thuộc tính khác (ví dụ `user.khoa == resource.khoa`).
